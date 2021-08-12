@@ -1,0 +1,674 @@
+---
+title: "20 - Vectors"
+author: "Augusto de Souza Cavalcanti"
+date: "08/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+## 20.1 Introduction
+
+Até agora focamos em tibbles e pacotes que as manipulam, porém é importante ter um conhecimento de vetores, dado que eles constituem os dataframes e tibbles. Apesar do foco do cápitulo ser em estruturas que estão presentes no r base, são usadas algumas funções do purr então podemos carregar o tidyverse todo por conveniência.
+
+## 20.2 Vector Basis
+
+Existem dois tipos de vetores:
+
+1- Atomic: Que podem ser de seis tipos: logical, integer, double, character, complex, e raw.
+
+2- Lists: Que podem ser chamados de vetores recursivos pois listas podem conter outras listas.
+
+A principal diferença é que vetores atomicos são homogêneos enquanto listas podem ser heterogêneas. Outro objeto é NULL que pode ser considerado o vazio de um vetor.Se comporta como um vetor de comprimento 0.
+
+`![Hierarquia Vetores](https://d33wubrfki0l68.cloudfront.net/1d1b4e1cf0dc5f6e80f621b0225354b0addb9578/6ee1c/diagrams/data-structures-overview.png)`
+
+Resolvi deixar só no pdf e não no rmd
+
+
+
+Todo vetor tem duas propriedades principais:
+
+1- Tipo: Que pode ser determinado por typeof()
+
+2- Length: Que pode ser representado por length()
+
+Vetores também porem conter informações extras arbitrárias que alteram esses vetores que podem gerar comportamentos diferentes.
+
+- Fatores são construídos sobre vetores de inteiros.
+
+- Dates e Date-Times são contruídos sobre vetores númericos.
+
+- Data Frames e tibbles são contruídos sobre listas.
+
+## 20.3 Important Types of Atomic Vectors
+
+Os 4 mais importantes são Locical, integer, double e character. Raw e complex são pouco usados em análise de dados e não serão discutidos.
+
+### 20.3.1 Logical
+
+São os mais simples e só podem assumir três valores; TRUE, FALSE e NA. Geralmente são criados a partir de operações de comparação.
+
+```{r}
+logicalvec <- 1:10%%3 ==0
+logicalvec
+```
+
+Podemos fazer sum e mean para ter o total e a proporção de TRUE presente.
+
+### 20.3.2 Numeric
+
+Vetores de Integer e Double são conhecidos como vetores númericos. Por default números no r são double. Para transformar em integer temos que colocar um L depois do número.
+
+```{r}
+typeof(1)
+
+typeof(1L)
+```
+Existem duas principais diferenças entre eles.
+
+Doubles são aproximações. Doubles representam números de ponto flutuante, que muitas vezes não podem ser representado com precisão devido a mémoria definida pelo computador. Dessa maneira é importante considerar que doubles sempre são aproximações. Exemplo evidente a seguir.
+
+```{r}
+sqrt(2) ^ 2
+
+sqrt(2) ^ 2 == 2
+
+sqrt(2)^2 -2
+```
+
+Para solucionar esse problema de erros podemos usar a função dplyr::near() que faz a comparação com uma margem de erro pequena para compensar esses fenômenos.
+
+```{r}
+near(sqrt(2)^2,2)
+```
+
+Inteiros tem um valor especial NA, enquanto doubles tem quatro valores especiais, NA, NaN, Inf, -Inf. Todos valores especiais podem aparecer durante a divisão.
+
+```{r}
+c(-1, 0, 1) / 0
+```
+Devemos evitar usar comparações == quando procurando esse valores, devemos procurar usando is.finite() , is.infinite() e in.nan().
+
+## 20.3.3 Character
+
+Esse tipo de vetor é o mais complexo entre os atomicos pois são compostos de strings, e cada string tem uma quantidade de diferente de dados.
+
+Já vimos muito sobre strings, vamos pontuar apenas outras coisas aqui. O R usa um Global String Pool. Cada string é salva salva apenas uma vez na memória e outros usos desse string são apontados para o antigo. ISso reduz a mémoria usada para repetição de strings.
+
+```{r}
+x <- "This is a reasonably long string."
+pryr::object_size(x)
+
+
+y <- rep(x, 1000)
+pryr::object_size(y)
+
+```
+Podemos ver que repetir 1000 vezes não ocupa 1000 vezes a memória. O tamanho é maior pois cada vez que é apontado para a string são usados 8 bytes. Assim 100 repetições vão ocupar: 8*1000 + 152 B = 8.14Kb
+
+### 20.3.4 Missing Values
+
+Cada tipo de vetor tem seu próprio NA, não é necessário saber muito disso normalmente, porém existem alguns inputs que precisam que seja usado o NA correto então é útil se lembrar disso..
+```{r}
+NA            # logical
+
+NA_integer_   # integer
+
+NA_real_      # double
+
+NA_character_ # character
+
+```
+
+### Exercícios 20.3.5
+
+a) Describe the difference between is.finite(x) and !is.infinite(x).
+
+Enquanto is.finite() testa se um valor é finito , ou seja retorna True para qualquer número diferetne de infinito e -Inf. O !is.infinite() testa se um valor é diferente de infinito, retorna True p/ qualquer coisa diferente de infinito.
+
+Ou seja strings, Na e outros formatos são True p/ !is.infinite e False p/ is.finite.
+
+```{r}
+is.finite('a')
+
+!is.infinite('a')
+```
+b) Read the source code for dplyr::near() (Hint: to see the source code, drop the ()). How does it work?
+
+O código testa se a diferença absoluta dos dois valores é menor que um valor extremamente pequeno de tolerância, caso seja eles são considerados iguais.
+
+c) A logical vector can take 3 possible values. How many possible values can an integer vector take? How many possible values can a double take? Use google to do some research.
+
+Um integer é representado por 32bits então podem receber 2^32^ representações, os valores que podem ser representados variam de -2^31^ até 2^31^ . Pois o sinal ocupa um espaço.
+
+Para doubles o r usa uma representação de 64 bits, essa representação é muito maior que a de integers, números inteiros podem ser representados como double e ter valores maiores. As complexidades do ponto flutuante fazem com que o range de valores que podem ser representados em um valor seja +- 2 * 10^308^
+
+
+d) Brainstorm at least four functions that allow you to convert a double to an integer. How do they differ? Be precise.
+
+```{r}
+typeof(4L*1)
+typeof(4L-0)
+typeof(4L+0)
+typeof(4L / 1)
+```
+Existem milhares de funções que fazem essas transformações automaticamente. Porém os operadores aritiméticos são os mais simples.
+
+e) What functions from the readr package allow you to turn a string into logical, integer, and double vector?
+
+As funções que começam com parse_ permitem essas tranformações.
+
+```{r}
+parse_logical(c("TRUE", "FALSE", "1", "0", "true", "t", "NA"))
+```
+
+```{r}
+parse_integer(c("1235", "0134", "NA"))
+```
+```{r}
+parse_number(c("1.0", "3.5", "$1,000.00", "NA", "ABCD12234.90", "1234ABC", "A123B", "A1B2C"))
+```
+
+Parse_number convete para númerico e ainda perdooa caracteres diferentes. Parse_integer retorna erro quando encontra valores não numericos.
+
+
+## 20.4 Using Atomic Vectors
+
+Agora podemos ver algumas das ferramentas que são úteis para trabalhar com esses vetores.
+
+1- Como converter de um tipo para outro e quando isso acontece automaticamente.
+
+2- Como dizer se um objeto é um tipo específico de vetor.
+
+3- O que acontece quando trabalhamos com vetores de tamanhos diferentes.
+
+4- Como nomear os elementos de um vetor.
+
+5- Como selecionar elementos de interesse.
+
+### 20.4.1 Coercion
+
+Existem duas maneiras de converter um vetor.
+
+- Explicitamente por meio da chamada de funções com o prefixo as_ seguido pelo tipo que queremos transformar.
+
+as.logical(), as.integer(), as.double(), or as.character()
+
+- Implicitamente quando usamos um tipo de vetor em funções e locais que esperavam outro.
+
+Exemplos de implícita:
+
+```{r}
+x <- sample(1:20,100,replace = T)
+
+y <- x > 10
+
+y 
+
+sum(y) # Maiores que 10
+
+mean(y) # Proporção de maiores que 10
+```
+
+### 20.4.2 Test Functions
+
+As vezes queremos que funções façam coisas diferentes baseado no que elas recebem, podemos usa is.vector() e suas variações do r base para isso. Porém usar a variação is_vector() e essa família do purr é mais confiável.
+As funções são:
+
+```
+is_logical()					
+is_integer()					
+is_double()				
+is_numeric()			
+is_character()				
+is_atomic()	
+is_list()				
+is_vector()
+```
+
+### 20.4.3 Scalars and Recycling rules
+
+o r recicla vetores menores em operações para que tenham o mesmo tamanho do maior. O r não tem escalares, eles são na verdade vetores de tamanho 1. Pelo fato do r operar vetorialmente isso permite que vários funções funcionem de maneira vetorizada.
+
+```{r}
+sample(10) + 10
+
+runif(10) > 0.5
+```
+Se fazemos operações com vetores de mesmo tamanho o que acontece?
+
+```{r}
+c(1,2,3) + c(1,2,3)
+```
+Podemos ver que é multiplicado posição por posição. Mas e se os vetores tiverem tamanhos diferentes?
+
+Caso os tamanhos sejam diferentes o r repete o vetor menor até ter o tamanho do maior.
+
+```{r}
+1:10 * 1:2
+```
+Esse reciclamento é silencioso a não ser que o tamanho do maior não seja múltiplo do tamanho do menor.
+
+```{r}
+1:3 * 1:10
+```
+Essa natureza permite a criação de funções curtas e eficientes porém pode trazer erros caso seja usado levianamente, por isso as funções do tidyverse não funcionam dessa maneira e retornam erro sempre que for reciclado um vetor de tamanho diferente de 1. Se desejamos usar isso no tidyverse temos que declarar usando rep().
+
+```{r}
+tibble(x=1:4, y =rep(1:2,times=2))
+
+tibble(x = 1:4, y =rep(1:2,each =2 ))
+```
+
+### 20.4.4 Naming Vectors 
+
+Todos tipos de vetores podem ser nomeados. Podemos nomear durante a criação:
+
+```{r}
+c(a=1,b=2,c=3)
+```
+Ou depois com purr::set_names()
+
+```{r}
+set_names(c(1,2,3),c("a","b","c"))
+```
+Vetores nomeados são úteis para subsets.
+
+### 20.4.5 Subsetting
+
+Até agora usamos dplyr::filter() para filtrar as linhas de uma coluna. Porem ele só funciona para dataframes (tibbles), [] é o que usamos para filtrar vetores. Existem 4 maneiras de filtrar vetores:
+
+1- Por meio de um vetor numerico contendo as posições desejadas.
+
+```{r}
+x<- c("Um","Dois","Três","Quatro","Cinco")
+
+x[c(4,2,5)]
+
+```
+Repetindo uma posição podemos criar vetores maiores que tinhamos:
+
+```{r}
+x[c(1,1,1,2,3,4,5)]
+```
+
+Negativo antes do vetor permite que retiremos as posições passadas:
+
+```{r}
+x[-c(1,2)]
+```
+
+2- Por meio de um vetor lógico, mantém todos TRUE.
+
+```{r}
+x[c(T,T,F,F,T)]
+```
+```{r}
+x<- 1:100
+x[x>95]
+```
+```{r}
+x <- c(1,2,3,NA,NA,6,7,NA)
+x[!is.na(x)]
+```
+3- Quando o vetor é nomeado podemos filtrar pelos nomes:
+
+```{r}
+x <- c(abc = 1, def = 2, xyz = 5)
+x[c("xyz", "def")]
+```
+
+4- A última maneira é colocando nada x[], que retorna tudo. Apesar de não ser útil em vetores é útil com matrizes e arrays pois podemos fazer algo como x[1,]. Que retorna todos elementos da primeira linha.
+
+```{r}
+(x <- matrix(1:9,3))
+
+x[1,]
+
+x[,1]
+```
+
+### Exercícios 20.4.6 
+
+a) What does mean(is.na(x)) tell you about a vector x? What about sum(!is.finite(x))?
+
+Mean(is.na(x)) informa a proporção de NAs de x. 
+
+sum(!is.finite(x)) informa quantos valores do vetor não são finitos. Entre eles podemos ter strings, Inf, NA , NaN...
+
+b) Compare and contrast setNames() with purrr::set_names().
+
+Existem pequenas diferenças, a principal é que set_names() permite que alteremos nomes já exitestentes usando funções.
+
+```{r}
+purrr::set_names(c(a = 1, b = 2, c = 3), ~str_c(.,'1'))
+
+purrr::set_names(c(a = 1, b = 2, c = 3), ~toupper(.))
+
+```
+set_names testa também se os argumentos tem tamanho igual e não recicla.
+
+```{r}
+# purrr::set_names(1:4, c("a", "b")) # Erro
+```
+
+
+c) Create functions that take a vector as input and returns:
+
+The last value. Should you use [ or [[?
+
+The elements at even numbered positions.
+
+Every element except the last value.
+
+Only even numbers (and no missing values).
+
+
+```{r}
+ultimo <- function(x){
+  x[[length(x)]]
+}
+
+ultimo(c(1,2,3,5,8,11))
+```
+```{r}
+pospar <- function(x){
+  if(length(x)<2){
+    c()
+  }else{x[seq(2,length(x),by =2)]
+    }
+}
+
+pospar(c(1,2,6,43,623,2))
+```
+```{r}
+menosult <- function(x){
+  x[-length(x)]
+}
+
+menosult(c(1,2,3,4))
+```
+
+```{r}
+par_noNA <- function(x){
+  x[!is.na(x) & x%%2==0]
+}
+
+par_noNA(c(1,2,3,4,5,6,7,8,9,10))
+```
+
+d) Why is x[-which(x > 0)] not the same as x[x <= 0]?
+
+Eles são diferentes em relação ao tratamento de valores especiais, NaN.
+
+```{r}
+x <- c(-2:2,Inf,-Inf,NA,NaN)
+
+x[-which(x>0)]
+
+x[x<=0]
+```
+O segundo transforma o NaN em NA pois não consegue fazer a comparação. O segundo não transforma pois está apenas selecionando a posição do NaN.
+
+e) What happens when you subset with a positive integer that’s bigger than the length of the vector? What happens when you subset with a name that doesn’t exist?
+
+```{r}
+x <- c(a=1,b=2,c=3)
+
+x[4]
+
+x[c(4,5)]
+```
+Encontra nada,NA.
+
+```{r}
+x['d']
+```
+Também retorna NA.
+
+## 20.5 Recursive Vectors (lists)
+
+Listas são mais avançadas pois podem conter outras listas dentro delas. Isso as torna boas para representar hierarquia dentro dos dados.
+
+```{r}
+x <- list(1,2,3)
+x
+```
+
+str é muito útil para analisar listas.
+
+```{r}
+str(x)
+
+x_named <- list(a = 1, b = 2, c = 3)
+str(x_named)
+
+```
+
+Listas podem conter vários objetos de tipos diferentes.
+
+```{r}
+y <- list("a", 1L, 1.5, TRUE)
+str(y)
+```
+E outras listas!
+
+```{r}
+z <- list(list(1, 2), list(3, 4))
+str(z)
+```
+
+### 20.5.1 Visualising Lists
+
+```{r}
+x1 <- list(c(1, 2), c(3, 4))
+x2 <- list(list(1, 2), list(3, 4))
+x3 <- list(1, list(2, list(3)))
+```
+
+![Listas](https://d33wubrfki0l68.cloudfront.net/5ba72e78f2df8568c1be82236659558b0e06904c/04521/diagrams/lists-structure.png)
+
+### 20.5.2 Subsetting
+
+Existem 3 maneiras de fazer isso e vamos demontrar usando uma lista a:
+
+```{r}
+a <- list(a = 1:3, b = "a string", c = pi, d = list(-1, -5))
+```
+
+- [] Extrair uma sublista, o resultado sempre vai ser uma lista
+```{r}
+a[1]
+
+a[4]
+```
+- Extrair um único componente da lista, remove a hierarquia.
+
+```{r}
+a[[1]]
+
+a[[4]][1]
+```
+- $ Vai ser um atalho para extrair pelo nome, remove a hierarquia
+
+```{r}
+a$d
+```
+
+## 20.6 Attributes
+
+Qualquer vetor pode conter dados extras por meio de atributos. Você pode pensar em atributos como uma lista nomeada de vetores que é anexada ao objeto. Podemos obter e definir atributos por meio de attr() e ver todos com attribuutes()
+
+```{r}
+x <- 1:10
+
+attributes(x)
+
+attr(x,"Cumprimento") <- "Olá!"
+
+attr(x,"Cumprimento")
+
+attr(x,"Despedida") <- "Tchau!"
+
+attr(x,"Despedida")
+
+attributes(x)
+
+x
+```
+
+
+Existem duas partes importantes de atributos que são usadas para implementar partes funcamentais do R:
+
+- Names são usados para nomear elementos de um vetor.
+
+- Dimensions (dims) fazem com que um vetor se comporte como uma matriz ou array.
+
+- Class, usado para implementar o sistema s3 orientado a objetos.
+
+Vamos descrever classes, que controlam como funções genéricas funcionam. Essas funções são fundamentais para programação orientada a objetos no R pois fazem com que funções se comportem de maneiras diferentes quando recebem inputs diferentes. 
+
+Vamos dar uma olhada em como uma função genérica típica funciona.
+
+```{r}
+as.Date
+```
+A chamada de UseMethod significa que essa é uma função genérica e vai chamar certo método, uma função baseada na classe do primeiro argumento. Todos métodos são funções. Você pode listar todos métodos de uma função genérica com methods()
+
+```{r}
+methods("as.Date")
+```
+Por exemplo, se x for um vetor de caracteres, as.Date vai chamar vai chamar as.Date.character(), se for um fator vai chamar as.Date.factor()
+
+Você pode ver a implementação espécifica de um método com getS3method():
+
+```{r}
+getS3method("as.Date","default")
+```
+
+### 20.7 Augmented Vectors
+
+Vetores Atomicos e Listas são as fundações para outros tipos de vetores como factors e dates. Esses outros vetores são chamados de vetores aumentados pois são vetores com atributos extra, incluido classes. Como vetores aumentados tem classes eles se comportam de maneira diferente dos vetores atomicos usados para construi-los. Nesse livro usamos 4 importantes vetores aumentados.
+
+- Factors
+
+- Dates
+
+- Date-Times
+
+- Tibbles
+
+### 20.7.1 Factors
+
+Fatores são usados para representar dados categóricos mas que podem receber um valor entre valores indexados.
+
+```{r}
+x <- factor(c("ab","cd","ab"),levels=c("ab","cd","ef"))
+
+typeof(x)
+
+attributes(x)
+```
+
+### 20.7.2 Dates and Date-Times
+
+Datas no r são vetores numericos que são representados como número de dias desde 1/1/1970
+
+```{r}
+x <- as.Date("1971-01-01")
+unclass(x)
+
+
+typeof(x)
+
+attributes(x)
+
+x <- as.Date(lubridate::today())
+unclass(x)
+```
+
+Date-Times são vetores númericos que representam o número de segundos desde 1/1/1970 00:00 no formato "POSIXct"
+
+```{r}
+x <- lubridate::ymd_hm("1970-01-01 01:00")
+unclass(x)
+
+typeof(x)
+
+attributes(x)
+```
+
+O argumento tzone é opcional. COntrola apenas como o horario é impresso.
+
+```{r}
+attr(x, "tzone") <- "US/Pacific"
+x
+
+
+attr(x, "tzone") <- "US/Eastern"
+x
+
+```
+
+### 20.7.3 Tibbles
+
+Tibbles são listas aumentadas que possuem classe “tbl_df” + “tbl” + “data.frame” e atributos names (colunas) e row.names().
+
+```{r}
+tb <- tibble::tibble(x = 1:5, y = 5:1)
+typeof(tb)
+
+attributes(tb)
+```
+
+
+
+Data.Frames tradicionais tem uma estrutura bem parecida.
+
+```{r}
+df <- data.frame(x = 1:5, y = 5:1)
+typeof(df)
+
+attributes(df)
+
+```
+
+A classe data.frame nas tibbles faz com que as características dos data.frames sejam herdadas por tibbles, mas além disso as outras classes criam comportamentos e funcionamento extras.
+
+### Exercícios 20.7.4
+
+a) What does hms::hms(3600) return? How does it print? What primitive type is the augmented vector built on top of? What attributes does it use?
+
+```{r}
+( x <- hms::hms(3600)) 
+
+typeof(x)
+
+attributes(x)
+```
+
+hms retorna o valor númerico relativo a segundos. É imprimido como horas, minutos e segundos. Nesse caso 3600 segundos == 1 hora, impressão (01:00:00). Usa os atributos "units" que tem "secs" unidade segundos. Classe "hms" e "difftime"
+
+b)  Try and make a tibble that has columns with different lengths. What happens?
+
+```{r}
+# tibble(a= 1:4,b=1:2)
+```
+Erro e pede que as colunas tenham tamanho igual.
+
+c) Based on the definition above, is it ok to have a list as a column of a tibble?
+
+Não tenho certeza mas uma tibble tem tipo list então acredito que não tenha problema desde que os tamanhos sejam iguais.
+
+```{r}
+(x<- tibble(a = 1:3,b= list("oi",1:3,list(1,2))))
+
+typeof(x)
+
+x[[2]][[3]][[2]] + 2
+```
+

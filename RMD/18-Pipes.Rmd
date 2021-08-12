@@ -1,0 +1,88 @@
+---
+title: "18- Pipes"
+author: "Augusto de Souza Cavalcanti"
+date: "05/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(magrittr)
+```
+
+# 18 Pipes
+
+## 18.1 Introduction
+
+Pipes são úteis para expressar claramente uma sequência de operações. A partir de agora vamos entender como eles funcionam e alternativas a eles e ferramentas úteis relacionadas.
+
+O pipe vem do pacote magrittr. O tidyverse carrega o pipe automaticamente mas nesse cápitulo vamos focar em pipes então carregar apenas o magrittr.
+
+## 18.2.4 The pipe
+
+O pipe transforma de uma lingugem léxica para uma computacional, fazendo uma transformação no ordem e alterando as coisas. A maneira que ele funciona implica que temos algumas funções que não vão funcionar.
+
+O pipe transforma o que você escreveu e cria uma função fazendo o processo que pedimos num abiente sem ser o global, mas sim o local, das funções.
+
+Funções que usam o ambiente atual. Ex: Assign()
+
+```{r}
+assign("x",10)
+x
+
+"x" %>% assign(20)
+x
+```
+
+Funções que usam avaliação preguiçosa. No r os argumentos só são computados quando a função usa eles, não antes de chamar a função. No entanto o pipe computa cada elemento, dessa maneira funções podem não funcionar com esse comportamento.
+
+Um exemplo desse problema é na função é tryCatch(), que permite que capturemos e lidar com erros.
+
+## 18.3 When not to use the pipe
+
+Pipes são úteis mas nem sempre são necessários e não são a única ferramenta disponível. Eles são mais úteis para escrever uma sequência curta e linear de operações. 
+
+- Quando seus pipes são mais longos que dez passos (por exemplo). Nesse caso vale a pena criar um objeto intermediário. Faz a debugação ficar mais simples e torna seu código mais legível.
+
+- Quando temos múltiplos inputs e outputs. Se tem um objeto primário sendo transformado, mas dois objetos intermediarios sendo combinados não use o pipe.
+
+## 18.4 Other tools from magrittr
+
+Todos pacotes do tidyverse tem o pipe implementado mas o magrittr tem outras ferramentas que podem ser usadas:
+
+Muitas vezes é importante chma os side-effects de uma função quando trabalhando com pipes complexos. Muitas funções não retornam nada, para funções que funcionam assim temos que usar %T% que retorna o objeto da esquerda não o da direita. Como abaixo.
+
+```{r}
+rnorm(100) %>%
+  matrix(ncol = 2) %>%
+  plot() %>%
+  str()
+
+
+rnorm(100) %>%
+  matrix(ncol = 2) %T>%
+  plot() %>%
+  str()
+
+```
+
+Se estiver trabalhando com funções que não tem que não tem uma API baseada em df. Ou seja temos que passar vetores, não o dataframe. Pode ser útil usar %$%. Ele remove as variáveis do formato df para poderem ser usadas explicitamente.
+
+```{r}
+mtcars %$%
+  cor(disp, mpg)
+```   
+
+Para atribuição o magrittr permite que usemos %<>%, que permite que substituamos códigos como:
+
+```{r}
+mtcars <- mtcars %>% 
+  transform(cyl = cyl * 2)
+```
+
+por:
+
+```{r}
+mtcars %<>% transform(cyl = cyl * 2)
+```
+

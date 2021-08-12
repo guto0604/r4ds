@@ -1,0 +1,475 @@
+---
+title: "12-TidyData"
+author: "Augusto de Souza Cavalcanti"
+date: "27/04/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(tidyverse)
+```
+
+## 12.2 Tidy Data
+
+O foco desse capítulo é no pacote tidyr, e o conceito de tidy data. 
+
+Podemos apresentar os mesmos dados de diversas maneiras diferentes, abaixo temos os mesmos dados apresentados de 4 maneiras diferentes.
+
+```{r}
+table1
+
+table2
+
+table3
+
+
+table4a  
+table4b  
+
+``` 
+
+Todos são representações dos mesmos dados mas nem todos tem a mesma facilidade para uso. Um dos datasets, o no formato tidy, pode ser usado com muito mais facilidade dentro do tidyverse.
+
+Um dataset é considerado tidy se segue três regras:
+
+1- Cada variável tem sua coluna
+
+2- Cada observação tem sua linha
+
+3- Cada valor tem sua célula
+
+O único dataset que era tidy no exemplo anterior era o da table1.
+
+Vantagens de tidy data:
+
+- Manter a maneira de armazenar dados consistentes facilita o aprendizado e uso por manter tudo uniforme.
+
+- Existe uma vantegem dos dados em colunas pois permite a natureza vetorial do r ser aproeveitada. Dessa maneira a transformação de dados tidy se torna natural.
+
+Todos pacotes do tidyverse foram planejados para serem usados com tidy data. Dessa forma é importante manter os dados dessa maneira.
+
+### Exercícios 12.2.1
+
+a) Escreva como as variáveis e observações estão em cada uma das tabelas acima.
+
+table1 = Dados Limpos (tidy), cada linha uma observação, cada coluna uma variável e cada célula um valor.
+
+table2 = Cada observação está em 2 linhas, existe uma coluna que indica o que está sendo observado naquela linha
+
+table3 = Cada observação em sua linha, porém existe uma coluna para duas variáveis.
+
+table4a e table4b = As tabelas estão cada uma separada para descrever uma variável, o ano está divido em colunas dessa maneira uma linha não apresenta uma observação, nem uma coluna uma variável.
+
+b) Calcule o rate (casos por 10 000), para table 2 e tables 4:
+
+```{r}
+table2_casos <- table2 %>% filter(type=='cases') %>% rename(cases=count) %>% select(country,year,cases)
+
+table2_pop <- table2 %>% filter(type=='population') %>% rename(population=count) %>% select(country,year,population)
+
+table2_nova <- tibble(country= table2_casos$country, year=table2_casos$year, casos=table2_casos$cases, populacao = table2_pop$population) %>% mutate(prop= casos/populacao*10000) %>% select(country,year,prop)
+
+# agora para armazenar na tabela antiga:
+
+table2_aux <- table2_nova %>% mutate(type='cases_per_10000') %>% rename(count =prop)
+
+table_2_nova <- bind_rows(table2,table2_aux)
+
+table_2_nova %>% arrange(country,year,type,count)
+```
+
+Para o outro caso:
+
+```{r}
+table4c <- tibble(country =table4a$country,`1999`= table4a$`1999` / table4b$`1999` * 10000,
+                  `2000` = table4a$`2000` / table4b$`2000` * 10000)
+```
+
+O caso da tabela 4 é um pouco mais fácil mas ambos poderiam ser bem melhores.
+
+c) Crie um gráfico mostrando os casos em relação ao tempo a partir da tabela 2.
+
+```{r}
+table2 %>% filter(type=='cases') %>% ggplot(aes(year,count)) + geom_line(aes(color=country))+ geom_point(aes(color=country))
+```
+
+## 12.3 Tidy Data
+
+A maioria dos dados que encontramos não está tidy. Os dois principais motivos são:
+
+- A maioria das pessoas não está familiarizado com o conceito de tidy data.
+
+- Os dados muitas vezes estão organizados para outro propósito sem ser a análise, Por exemplo para facilitar a entrada de dados.
+
+Isso significa que quase sempre temos que fazer a limpeza desses dados. O primeiro passo é descobrir o que são variáveis e o que são observações. O segundo passo é resolver um de dois problemas:
+
+- Uma variável pode estar distríbuida em várias colunas.
+
+- Uma observação pode estar em várias linhas.
+
+Para resolver isso você deve usar duas das mais importantes funções do tidyr: pivot_longer() e pivot_wider().
+
+### 12.3.1 Longer
+
+Um problema comum é que os nomes das colunas não são variáveis mas sim valores de variáveis. Na table4a por exemplo, as colunas 1999 e 2000 são valores de uma variável ano e os valores dessas colunas são os valores de uma variável casos, e cada linha representa duas observações, não uma.
+
+```{r}
+table4a
+```
+
+Para fazer a limpeza desses dados precisamos pivotear as colunas para se tornarem um novo par de variáveis. Precisamos de 3 parâmetros para descrever esse processo:
+
+- As colunas que os nomes são valores e não variáveis. (1999 e 2000)
+
+- O nome da variável que conterá o nome das colunas atuais. (year)
+
+- O nome da variável que conterá o valor presente nas colunas atualmente. (cases)
+
+```{r}
+(tidy4a <- table4a %>% pivot_longer(cols=c(`1999`,`2000`),names_to = 'year',values_to = 'cases'))
+```
+As colunas para pivotear são selecionadas com uma notação igual ao select do dplyr, porém como nesse caso só tinhamos duas listamos individualmente.
+
+pivot_longer torna os datasets mais longos aumentando o número de colunas.
+
+Podemos usar pivot_longer() no dataset 4b também.
+
+```{r}
+(tidy4b <- table4b %>% pivot_longer(cols=c(`1999`,`2000`),names_to = 'year', values_to='population'))
+```
+
+Para combinar as duas tabelas e tornar o dataset tidy e único podemos fazer um left_join(), veremos mais sobre isso em relational data mas é estilo SQL.
+
+```{r}
+left_join(tidy4a,tidy4b)
+```
+
+### 12.3.2 Wider
+
+O oposto de pivot_longer(), pivot_wider(), é usado para quando temos uma observação dividida em várias linhas. Na table2 por exemplo onde uma observação é um país em um ano mas isso está representado em várias 2 linhas.
+
+```{r}
+table2
+```
+
+Para alterarmos precisamos de dois parâmetros:
+
+- A coluna para tirar os nomes das variáveis. (type)
+
+- A coluna para tirar os valores das variáveis. (count)
+
+```{r}
+table2 %>% pivot_wider(names_from = type,values_from = count)
+```
+
+Os dois tipos de pivoteamento se complementam e são usados frequentemente.
+
+### Exercícios 12.3.3
+
+a) Por que pivot_wider e pivot_longer não são perfeitamente símetricas? considere o ex a seguir:
+
+```{r}
+stocks <- tibble(
+  year   = c(2015, 2015, 2016, 2016),
+  half  = c(   1,    2,     1,    2),
+  return = c(1.88, 0.59, 0.92, 0.17)
+)
+stocks %>% 
+  pivot_wider(names_from = year, values_from = return) %>% 
+  pivot_longer(`2015`:`2016`, names_to = "year", values_to = "return")
+```
+
+Os tipos das colunas são perdidos quando fazemos algumas dessas transformações. O argumento names_ptypes permite passar o tipo de cada coluna por meio de seus nomes.
+
+b) Por que esse códigonão funciona?
+
+```{r}
+# table4a %>% 
+#   pivot_longer(c(1999,2000), names_to = "year", values_to = "cases")
+```
+
+O código falha pois 1999 e 2000 devem conter backsticks pois são nomes "impróprios".
+
+c) O que aconteceria se voce usase pivot_wider nessa tabela? Por que? Como você poderia adicionar uma nova coluna para indentificar unicamente cada valor?
+
+```{r}
+people <- tribble(
+  ~name,             ~names,  ~values,
+  #-----------------|--------|------
+  "Phillip Woods",   "age",       45,
+  "Phillip Woods",   "height",   186,
+  "Phillip Woods",   "age",       50,
+  "Jessica Cordero", "age",       37,
+  "Jessica Cordero", "height",   156
+)
+```
+
+Tentar falar um pivot wider dess table falha pois não teriamos uma idade repetida para phillip, para resolver isso teriamos que adicionar um índice para cada pessoa, e depois de alterado isso seria usado como chave primária.
+
+```{r}
+people %>% mutate(id = c(1,1,2,3,3)) %>% pivot_wider(names_from = names,values_from=values) %>% arrange(id,name,age,height)
+```
+Se fosse um erro de entrada bastaria remover o valor incorreto do phillip.
+
+d) Limpe os simples dados a seguir. Eles devem ser alongados ou alargados?
+
+```{r}
+preg <- tribble(
+  ~pregnant, ~male, ~female,
+  "yes",     NA,    10,
+  "no",      20,    12
+)
+```
+
+Sem muito conhecimento sobre o dataframe podemos considerar que os valores das colunas male e female são contagens de cada um e que male e female seriam valores para a variável sexo. Temos que usar pivor_longer.
+
+```{r}
+preg %>% pivot_longer(cols = c(male,female),names_to = 'Sex',values_to = 'Count')
+```
+
+## 12.4 Separating and Uniting
+
+Até agora aprendemos a limpar a tabela 2 e 4 mas não a 3. Essa contém um problema diferente, os dados sobre população e casos estão na mesma célula dividos por uma barra. Uma coluna contém duas variáveis. Para consertar esse problema temos que usar a função separate(). Também existe um complemento para essa função que se chama unite().
+
+### 12.4.1 Separate
+
+separate separa uma coluna em diversas fazendo isso por meio do separador definido.
+
+```{r}
+table3
+```
+
+A coluna rate contém dados sobre os casos e população do país naquele ano, para que os dados sejam tidy, não podemos ter valores de duas variáveis em uma célula. Fazemos a separação por separate com o separator / que é o que separa esses dados.
+
+```{r}
+table3 %>% separate(col = rate, into=c('cases','population'), sep='/')
+```
+
+Por padrão essa função já separa quando encontra um valor que não é número ou letra. Mas podemos fornecer o separador. 
+
+Podemos perceber que as colunas foram classificadas como vetores de caracteres, para que o tipo já seja indentificado automaticamente temos que passar o argumento convert= T.
+
+```{r}
+table3 %>% separate(col = rate, into=c('cases','population'), sep='/',convert=T)
+```
+
+Você pode separar também baseado em posição se passarmos um valor númerico para sep.
+
+```{r}
+tb3n <- table3 %>% separate(col=year,into=c('Century','Year'),sep=2)
+```
+
+### 12.4.2 Unite
+
+Unite faz o inverso do separate, costuma ser menos frequente a necessidade de usar mas é útil saber.
+
+```{r}
+table5
+
+table5 %>% unite(new,century,year,sep='')
+```
+
+### Exericícios 12.4.3
+
+a) O que os argumentos extra e fill fazem no separate. Use os dataframes a seguir para testar.
+
+Extra:
+```{r}
+tibble(x = c("a,b,c", "d,e,f,g", "h,i,j")) %>% 
+  separate(x, c("one", "two", "three"),extra='warn') # Discarta os valores das linhas que a separação gera mais valores que colunas informadas e deixa um aviso
+
+tibble(x = c("a,b,c", "d,e,f,g", "h,i,j")) %>% 
+  separate(x, c("one", "two", "three"),extra = 'drop') # Discarta os valores das linhas que a separação gera mais valores que colunas informadas e não avisa
+
+tibble(x = c("a,b,c", "d,e,f,g", "f,g,i")) %>% 
+  separate(x, c("one", "two", "three"),extra='merge') # Os valores das linhas que tem mais valores ao separar que colunas informadas juntam na ultima célula
+
+```
+
+Fill:
+```{r}
+tibble(x = c("a,b,c", "d,e", "f,g,i")) %>% 
+  separate(x, c("one", "two", "three"),fill='warn') # Preenche os valores para a direita com NA e deixa um aviso
+
+tibble(x = c("a,b,c", "d,e", "f,g,i")) %>% 
+  separate(x, c("one", "two", "three"),fill='right') # Preenche os valores NA para a direita e não avisa
+
+tibble(x = c("a,b,c", "d,e", "f,g,i")) %>% 
+  separate(x, c("one", "two", "three"),fill='left') # Preenche os valores NA na esquerda e não deixa aviso.
+```
+
+b) O que o argumento remove de unite() e separate() faz? Por que você colocaria em falso?
+
+O argumento remove é para defeinir se você deseja tirar a coluna de input ou manter ela junto com as que foram geradas.
+```{r}
+table3 %>% separate(year,c('Seculo','Ano'),sep=2,remove = F)
+```
+
+Pode ser útil em situações como no exemplo acima que queremos separar em duas colunas mas manter a original.
+
+c) A diferença de separate e extract é que extract faz a separação por meio do regex e te da mais liberdade para fazer as separações. 
+
+## 12.5 Missing Values
+
+Existem duas maneiras de representar dados faltantes em um dataset:
+
+- Explicitamente: Representar com NA
+
+- Implicitamente: Os faltantes não estão presentes nos dados
+
+Exemplo a seguir:
+
+```{r}
+stocks <- tibble(
+  year   = c(2015, 2015, 2015, 2015, 2016, 2016, 2016),
+  qtr    = c(   1,    2,    3,    4,    2,    3,    4),
+  return = c(1.88, 0.59, 0.35,   NA, 0.92, 0.17, 2.66)
+)
+```
+
+
+Nos dados temos dois valores faltantes:
+
+- Um que está explícito: O NA do quarto trimestre de 2015
+
+- Um que está implícito: O primeiro semestre de 2016 não aparece no dataset
+
+Podemos tornar dados missing explicitos em implicitos no pivot longer com o argumento values_drop_na = TRUE
+
+```{r}
+stocks %>% 
+  pivot_wider(names_from = year, values_from = return)
+
+stocks %>% 
+  pivot_wider(names_from = year, values_from = return) %>% 
+  pivot_longer(
+    cols = c(`2015`, `2016`), 
+    names_to = "year", 
+    values_to = "return", 
+    values_drop_na = TRUE
+  )
+```
+
+O argumento complete também explicita os NAs.
+
+```{r}
+stocks
+
+stocks %>% 
+  complete(year, qtr)
+```
+
+Outra coisa importante de saber é, quando a fonte dos dados é usada primariamente para entrada de
+dados as vezes NAs significam que os valores anteriores devem ser carregados. EX: 
+
+```{r}
+treatment <- tribble(
+  ~ person,           ~ treatment, ~response,
+  "Derrick Whitmore", 1,           7,
+  NA,                 2,           10,
+  NA,                 3,           9,
+  "Katherine Burke",  1,           4,
+  NA,                 2,           7,
+)
+```
+
+Os NAs representam o primeiro valor acima dele que não é NA. O argumento fill faz esse preenchimento.
+
+```{r}
+treatment %>% fill(person)
+```
+
+### Exercícios 12.5.1
+
+b) O que o argumento direction faz para fill? 
+
+Decide em que direção sera o preenchimento. Para cima ou para baixo, podemos fazer com o exmplo anterior (Vai ficar errado.)
+
+```{r}
+treatment %>% fill(person,.direction= "up")
+```
+
+## 12.6 Case Study
+
+Nessa parte faremos uso de tudo que aprendemos nesse capítulo para tentar limpar dados reais. Para isso usaremos dados sobre tuberculose por ano, pais,idade,genero e método de diagnostico. O banco de dados é o tidyr::who
+
+Esse banco de dados está extremamente confuso, com codificação estranha nas colunas que deveriam ser observações de variáveis.
+
+Primeiro precisamos indentificar o que cada coluna significa: 
+
+- Country, iso2 e iso3 representam o nome e códigos do país e são todas variáveis.
+
+- Ano também é variável.
+
+- As outras colunas são valores que representam o grupo e seus valores são o número de casos desses. Primeiro podemos fazer um pivot_longer e unir essas categorias.
+
+```{r}
+(who_nova <- who %>% pivot_longer(new_sp_m014:newrel_f65,names_to = "grupo",values_to = "casos",values_drop_na = T))
+```
+
+Agora fizemos a separação dos grupos, de acordo com os dados sabemos que as 3 primeiras letras indicam se o caso é novo ou antigo, nesse df todos são novos. As próximas letras indicam o método de diagnóstico. A útltima letra indica o sexo da pessoa. Os números indicam a idade das pessoas do grupo. Podemos separar isso em várias colunas.
+
+Os nomes estão inconsistentes, temos newrel e não new_rel conforme o resto dos grupos, alteraremos isso com str_replace do pacote stringr para que todos dados se mantenham consistentes.
+
+```{r}
+who_nova2 <- who_nova %>% mutate(grupo = str_replace(grupo,'newrel','new_rel')) 
+```
+
+Podemos separar esses grupos em dois passos, primeiro por underscore:
+
+```{r}
+(who_nova3 <- who_nova2 %>% separate(grupo,c('novo','diagnóstico','sexoidade')))
+```
+
+Agora podemos separar sexo e idade.
+
+```{r}
+(who_nova4 <- who_nova3 %>% separate(sexoidade,c('sexo','idade'),sep=1))
+```
+
+Podemos agora discartar new , iso2 e iso3 pois são desnecessários no dataset.
+
+```{r}
+(who_tidy <- who_nova4 %>% select(-iso2,-iso3,-novo))
+```
+
+Fizemos isso gradualmente e salvando as variáveis aos poucos, essa maneira não é a mais comum de ser feita mas sim com uma sequência de pipes como a seguir (retirado direto do livro):
+
+```{r}
+who %>%
+  pivot_longer(
+    cols = new_sp_m014:newrel_f65, 
+    names_to = "key", 
+    values_to = "cases", 
+    values_drop_na = TRUE
+  ) %>% 
+  mutate(
+    key = stringr::str_replace(key, "newrel", "new_rel")
+  ) %>%
+  separate(key, c("new", "var", "sexage")) %>% 
+  select(-new, -iso2, -iso3) %>% 
+  separate(sexage, c("sex", "age"), sep = 1)
+```
+
+### Exercícios 12.6.1
+
+a) O ideal é que o values_drop_na não fosse aplicado para ficar mais claro essa falta de dados, temos muitos dados faltantes implícitos após fazer a limpeza. NA e zero são completamente diferentes, zero representa que sabemos que não tiveram casos daquele grupo no ano. Enquanto NA significa que não temos informação sobre o número de casos, podem ter acotencido qualquer número de casos.
+
+b) Caso não tivessemos feito a alteração do newrel para new_rel, ao fazer a divisão as colunas que tinham newrel ficariam com a sexo/idade em diagnostico e pelo fato do preenchimento de faltante a direita as colunas sexo e idade ficariam com NA para essses casos.
+
+c) iso2 e iso3 são redundantes, para esse dataset não faz sentido mante-las, porém para um banco de dados com diversas tabelas relacionadas, esses dados podem ser importantes para relalações.
+
+d) Para cada país,ano e sexo calcule o número total de casos. Faça uma visualização de dados informativa sobre isso.
+
+```{r}
+(casos_who_gp <- who_tidy %>% group_by(country,year,sexo) %>% summarise(casostot = sum(casos)))
+```
+
+Agora podemos fazer uma visualização a partir desses dados.
+
+```{r}
+casos_who_gp %>% filter(year>1995) %>% unite(country_sex,country,sexo,remove=F) %>%  ggplot(aes(x=year,y=casostot,group=country_sex,color=sexo)) + geom_line()
+```
+
+Considero que a visualização pedida é bem pouco informativa e quase sem utilidade.

@@ -1,0 +1,51 @@
+---
+title: '4 - Worflow: basics'
+author: "Augusto de Souza Cavalcanti"
+date: "20/04/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(tidyverse)
+```
+
+Nome de Objetos devem começar com uma letra.
+
+```{r}
+guto <- c('Augusto','Souza','Cavalcanti')
+augusto_souza <- 'guto'
+guto.idada <- 20
+```
+
+Ao declarar um objeto entre parenteses ele printa ao mesmo tempo.
+```{r}
+(Nome <- 'Augusto de Souza Cavalcanti')
+```
+
+## 4.4 Exercícios
+
+a)
+
+```{r}
+my_variable <- 10
+my_variable
+```
+
+b)
+
+```{r}
+library(tidyverse)
+
+ggplot(data = mpg) + 
+  geom_point(mapping = aes(x = displ, y = hwy))
+
+filter(mpg, cyl == 8)
+
+filter(diamonds, carat > 3)
+```
+
+c)
+
+alt + shift + k abre os keyboard shortcuts
+

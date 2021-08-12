@@ -1,0 +1,854 @@
+---
+title: "19 - Functions"
+author: "Augusto de Souza Cavalcanti"
+date: "05/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(dplyr)
+```
+
+# Functions
+
+## 19.1 Introduction
+
+Uma das maneiras mais eficazes de melhorar suas habilidades como Cientista de Dados é escrevendo suas funções. Funções permitem que você automatize tarefas comuns de maneira mais eficiente que copiar e colar. Existem três vantegens pricipais entre escrever funções e copiar e colar.
+
+- Você pode nomear a função de maneira eficiente para facilitar sua compreensão e uso no código.
+
+- Quando os requisitos mudam só precisamos mudar o código em um lugar, não em muitos.
+
+- Você elimina a chance de cometer erros quando replicando em outro lugar.
+
+Escrever funções é um processo de aprendizado eterno, o objetivo desse capítulo é ensinar algumas ferramentas e maneiras para começar por meio de dicas que podem ser aplicadas imediatamente.
+
+Não usaremos pacotes nesse capítulo que é focado no bom uso de funções no r base.
+
+## 19.2 When should you write a function?
+
+Você deveria considerar usar uma função sempre que copia e cola uma parte do código mais de duas vezes. Como exemplo veja o código a seguir:
+
+```{r}
+df <- tibble::tibble(
+  a = rnorm(10),
+  b = rnorm(10),
+  c = rnorm(10),
+  d = rnorm(10)
+)
+
+df$a <- (df$a - min(df$a, na.rm = TRUE)) / 
+  (max(df$a, na.rm = TRUE) - min(df$a, na.rm = TRUE))
+df$b <- (df$b - min(df$b, na.rm = TRUE)) / 
+  (max(df$b, na.rm = TRUE) - min(df$a, na.rm = TRUE))
+df$c <- (df$c - min(df$c, na.rm = TRUE)) / 
+  (max(df$c, na.rm = TRUE) - min(df$c, na.rm = TRUE))
+df$d <- (df$d - min(df$d, na.rm = TRUE)) / 
+  (max(df$d, na.rm = TRUE) - min(df$d, na.rm = TRUE))
+```
+
+você pode ter percebido que esse código altera as colunas para estarem em uma escala de 0 até 1. Porém um erro foi cometido na segunda linha, usamos `$a` ao ínves de `$b` na segunda vez.
+
+Podemos substituir esse processo por uma função. Precisamos indentificar quantos inputs esse código tem, apenas 1 `df$a`
+
+Para analisar o que são inputs podemos alterar o código para usar esses como variáveis temporarias.
+
+```{r}
+x <- df$a
+(x - min(x, na.rm = TRUE)) / (max(x, na.rm = TRUE) - min(x, na.rm = TRUE))
+```
+
+Podemos perceber também que temos repetição do código, Estamos computando o range dos dados 3 vezes, podems substituir isso.
+
+```{r}
+rng <- range(x,na.rm=T)
+
+(x-rng[1]) / (rng[2] - rng[1])
+```
+Agora que simplificamos o código e vimos que tudo funciona, podemos tranformar isso em uma função.
+
+```{r}
+rescale01 <- function(x){
+  rng <- range(x,na.rm=T)
+  (x-rng[1])/(rng[2]-rng[1])
+}
+
+rescale01(c(0,2,7))
+```
+
+Esses são os três passos principais para criar uma função:
+
+1- Escolher um nome útil.
+
+2- Listar os inputs, ou argumentos para as funções dentro da função,
+
+3- Colocar o código desenvolvido no corpo da função no meio de {}
+
+Agora podemos simplificar o código na primeira parte para simplesmente:
+
+```{r}
+df$a <- rescale01(df$a)
+df$b <- rescale01(df$b)
+df$c <- rescale01(df$c)
+df$d <- rescale01(df$d)
+```
+
+Ainda tem como melhorar esse processo por meio de loops, isso tornaria a repetição menor, aprenderemos mais nos próximos cápitulos.
+
+Ainde existem outras coisas. Podemos perceber que nossa função falha quando temos infinito envolvido.
+
+```{r}
+x <- c(1:10, Inf)
+rescale01(x)
+```
+Como nosso código está em uma função só precisamos modificar isso em um lugar para afetar todos locais que contém infinito.
+
+```{r}
+rescale01 <- function(x){
+  rng <- range(x, na.rm = TRUE, finite = TRUE)
+  (x - rng[1]) / (rng[2] - rng[1])
+}
+
+rescale01(x)
+```
+É sempre importante o pricípio do (DRY) "Do not repeat yourself". Quanto mais repetições seu código tiver mais oportunidades serão para cometer erros.
+
+### Exercícios 19.2.1
+
+a) Why is TRUE not a parameter to rescale01()? What would happen if x contained a single missing value, and na.rm was FALSE?
+
+True não é um parâmetro pois nunca queremos que esse transformações retorne somente NA. Que é o que aconteceria caso tivessemos um False em na.rm e um vetor com 1 NA.
+
+b) In the second variant of rescale01(), infinite values are left unchanged. Rewrite rescale01() so that -Inf is mapped to 0, and Inf is mapped to 1.
+
+```{r}
+rescale01 <- function(x){
+  rng <- range(x, na.rm = TRUE, finite = TRUE)
+  y<- (x - rng[1]) / (rng[2] - rng[1])
+  y[y== Inf] = 1
+  y[y==-Inf] = 0
+  return(y)
+}
+
+rescale01(c(-Inf,1,3,4,5,62,Inf))
+```
+c) Practice turning the following code snippets into functions. Think about what each function does. What would you call it? How many arguments does it need? Can you rewrite it to be more expressive or less duplicative?
+
+```
+mean(is.na(x))
+
+x / sum(x, na.rm = TRUE)
+
+sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE)
+
+```
+
+```{r}
+prop_na <- function(x){
+  mean(is.na(x))
+}
+
+prop_na(c(NA,2,3,NA,10,NA,2,3,4,1,NA))
+```
+```{r}
+percentual_tot <- function(x){
+  x / sum(x,na.rm=T)
+}
+
+percentual_tot(c(1,2,3,4,5,6,7,8,9,45))
+```
+```{r}
+coef_vari <- function(x,na.rm=T){
+  sd(x, na.rm = na.rm) / mean(x, na.rm = na.rm)
+}
+
+coef_vari(1:5)
+```
+
+d) write your own functions to compute the variance and skewness of a numeric vector.
+
+```{r}
+variancia <- function(x){
+  (1/(length(x)-1)) * sum(((x-mean(x))^2))
+}
+
+variancia(x)
+
+```
+
+
+```{r}
+skewness <- function(x){
+  ((1/(length(x)-2))*(sum((x-mean(x))^3)))/(variancia(x)^(3/2))
+}  
+
+skewness(c(1,2,5,100))
+```
+ 
+e) Write both_na(), a function that takes two vectors of the same length and returns the number of positions that have an NA in both vectors.
+
+```{r}
+both_na <- function(x,y){
+  if(length(x)==length(y)){
+  sum(is.na(x) & is.na(y))
+  }
+  else 
+    return("Os vetores devem ter o mesmo tamanho")
+}
+
+both_na(c(1,NA,2,NA),c(5,NA,1,NA))
+
+both_na(c(NA,2,NA),c(NA,2,3,4))
+```
+f) What do the following functions do? Why are they useful even though they are so short?
+
+```
+is_directory <- function(x) file.info(x)$isdir
+is_readable <- function(x) file.access(x, 4) == 0
+``` 
+
+A primeira função confere se um objeto é um diretório.
+
+A segunda confere se um objeto pode ser lido.
+
+## 19.3 Functions are for human and computers
+
+Essa seção vai discutir boas práticas em funções, não só para o computador mas para o melhor entendimento do código para você e para quem ler o código.
+
+O nome das funções deve ser claro e curto. O mais importante é a clareza, digitar nomes longos é facilitado pelo rstudio, já compreender as funções pelo nome não.
+
+Geralmente é ideal que o nome das funções sejam verbos e os argumentos substantivos. Claro que essa não é uma regra, especialmente se a função computa algo bem conhecido. EX : mean() é melhor que compute_mean() ou coef() melhor que get_coefficients(). O importante é sempre que seja claro o propósito.
+
+```{r}
+# Too short
+##   f()
+
+# Not a verb, or descriptive
+##   my_awesome_function()
+
+# Long, but clear
+##   impute_missing()
+##   collapse_years()
+```
+
+Se sua função tem várias palavras o padrão "snake_case", uma alternativa é "camelCase", o importante é tentar manter o padrão, independetne da escolha: 
+snake_case = palavra_palavra_palavra()
+camelCase = palavraPalavraPalavra
+
+Se você tem uma família de funções que fazem coisas parecidas tente manter os nomes e argumentos consistentes. Use um prefixo em comum, é melhor que um sufixo em comum pois permite que o autocomplete indentifique enquanto escrevemos.
+
+```
+# Good
+input_select()
+input_checkbox()
+input_text()
+
+# Not so good
+select_input()
+checkbox_input()
+text_input()
+```
+
+Um bom exemplo desse uso é no pacote stringr que todas funções começam com str_
+
+Evite substituir nomes de funções, como podemos fazer em português é mais evitável que para quem progrma em inglês.
+
+Use comentários com # quando possível para explicar o por que de algo estar sendo feito, não o como ou o que está sendo feito. Se não é possível entender o que o código faz sem comentários, pode ser necessário alterar ele. 
+
+Outro uso útil de comentários é para quebrar seu código em partes mais fáceis de ler usando barras - ou sinais de = depois do #.
+
+```{r}
+# Load data --------------------------------------
+
+# Plot data --------------------------------------
+
+```
+
+## Exercícios 19.3.1
+
+a) Leia o código de cada uma das funções a seguir, pense no que elas fazem e de nomes melhores.
+
+```{r}
+f1 <- function(string, prefix) {
+  substr(string, 1, nchar(prefix)) == prefix
+}
+
+f2 <- function(x) {
+  if (length(x) <= 1) return(NULL)
+  x[-length(x)]
+}
+
+f3 <- function(x, y) {
+  rep(y, length.out = length(x))
+}
+
+```
+
+f1) Essa função recebe um vetor de strings e um prefixo e retorna True para as palavras que tem esse prefixo e False para as outras. Outro nome poderia ser: has_prefix()
+
+
+f2) Essa função recebe um vetor e remove o último elemento desse vetor. Podeia se chamar: remove_last()
+
+f3) Essa função recebe dois vetores e retorna o vetor x repetido até que seu tamanho seja do mesmo tamanho de y.
+
+
+b) Compare rnorm() com MASS:mvrnorm() . Como elas poderiam ser mais consistentes?
+
+rnorm pega uma amostra de uma normal univariada, enquanto mvnorm pega de uma normal mutivariada. O argumento de rnorm para a média é mean, enquanto para a mvnorm o argumento é mu. Isso poderia ser padronizado. O ideal era que o nome do argumento para a média fosse mu ou mean para ambas.
+
+c) Forneça um argumento como motivo para que norm_d e norm_r seria melhor que rnorm e dnorm.
+
+O começo igual seria melhor pois poderiamos apenas digitar norm_ e o rstuio nos informaria as maneiras de completar, fazendo assim que vejamos todos da família.
+
+Porém temos que pensar que existe uma família de funções da distribuição, amostra e etc de várias outras distribuições. Então as rnorm e rbinom tem o mesmo prefixo, por essa perspectiva seria melhor não alterar.
+
+## 19.4 Conditional Execution
+
+### IF:
+
+```
+if (condition) {
+  # code executed when condition is TRUE
+} else {
+  # code executed when condition is FALSE
+}
+```
+
+### 19.4.1 Conditions
+
+Nunca deve se usar | ou & em ifs, eles são operadores vetorizados que aplicam sobre multíplos valores.
+
+Para ifs devemos usar || e &&. Se || encontra 1 true retorna True e para de operar. Se && encontra um False retorna False e para de operar.
+
+Se temos um vetor lógico podemos usar any() ou all() para colapsar.
+
+Cuidados ao usar == pois também é vetorizado, devemos usar all ou any. Podemos também conferir se o tamanho do objeto é 1 antes. Podemos usar a função identical() ao invés de == pois retorna um valor único, não comparações individuais.Porém identical é bem rigoroso retorna diferente para um double e integer de valor diferente.
+
+```{r}
+identical(1,1L)
+1 == 1L
+identical(1L,1L)
+
+all(c(1,2,3)==c(1L,2L,3L))
+```
+Temos também que ter cuidado com o ponto flutuante. A função dplyr::near() ajuda nisso.
+
+```{r}
+x = sqrt(2) ^2
+
+x == 2
+
+dplyr::near(sqrt(2)^2,2)
+
+x-2
+```
+
+## 19.4.2 Multiple Comparisons
+
+Voce pode concatenar vários ifs.
+
+Existem funções como switch e cut que podem diminuir a quantidade de ifs no código. Pode ser útil dar uma olhada.
+
+## 19.4.3 Code Style
+
+Podemos facilitar o entendimento e escrita do código usando {} de maneira eficiente. Eles servem como indentação
+```
+# Good
+if (y < 0 && debug) {
+  message("Y is negative")
+}
+
+if (y == 0) {
+  log(x)
+} else {
+  y ^ x
+}
+
+# Bad
+if (y < 0 && debug)
+message("Y is negative")
+
+if (y == 0) {
+  log(x)
+} 
+else {
+  y ^ x
+}
+```
+
+Se o seu if cabe em apenas uma linha podemos não usar as chaves.
+
+```{r}
+y <- 10
+x <- if (y < 20) "Too low" else "Too high"
+x
+```
+```{r}
+if (y < 20) {
+  x <- "Too low" 
+} else {
+  x <- "Too high"
+}
+
+x
+```
+### Exercícios 19.4.4
+
+a) What’s the difference between if and ifelse()? Carefully read the help and construct three examples that illustrate the key differences.
+
+ifelse faz retorna sempre um objeto do mesmo formato e pode receber vetores e testar individualmente
+
+```{r}
+ifelse(c(1,2,3,4)>2,"Sim","Não")
+```
+if é uma condição sem o else e pode retornar tento um objeto de formato diferente.
+
+```{r}
+if(1>2){
+  "Sim"
+  } else{"Não"}
+```
+b) Write a greeting function that says “good morning”, “good afternoon”, or “good evening”, depending on the time of day. (Hint: use a time argument that defaults to lubridate::now(). That will make it easier to test your function.)
+
+```{r}
+greetings <- function(time=lubridate::now()){
+  hora = lubridate::hour(time)
+  if(hora<=11){
+    writeLines("Good Morning")
+  } else if(hora > 11 && hora < 18){
+    writeLines("Good Afternoon")
+  } else{writeLines("Good Evening")}
+}
+
+greetings(lubridate::ymd_hm("202003030901"))
+
+greetings()
+
+```
+c) Implement a fizzbuzz function. It takes a single number as input. If the number is divisible by three, it returns “fizz”. If it’s divisible by five it returns “buzz”. If it’s divisible by three and five, it returns “fizzbuzz”. Otherwise, it returns the number. Make sure you first write working code before you create the function.
+
+```{r}
+fizzbuzz <- function(x){
+  if(x%%3 != 0 && x%%5 != 0){
+  x
+} else if(x%%3== 0 && x%%5 == 0){
+    "FizzBuzz"
+} else if(x%%3 == 0){
+    "Fizz"
+  } else{"Buzz"}
+}
+```
+
+```{r}
+unlist(lapply(1:30,fizzbuzz))
+```
+
+d) How could you use cut() to simplify this set of nested if-else statements?
+
+```
+if (temp <= 0) {
+  "freezing"
+} else if (temp <= 10) {
+  "cold"
+} else if (temp <= 20) {
+  "cool"
+} else if (temp <= 30) {
+  "warm"
+} else {
+  "hot"
+}
+```
+
+```{r}
+temperat <- function(x){
+  cut(x,c(-Inf,0,10,20,30,Inf),
+      right = F,
+      labels=c("Freezing","Cold","Cool","Warm","Hot"))
+}
+
+temperat(c(-1,9,19,29,30))
+```
+Cut funciona em vetores, dessa maneira é vantajoso pois podemos passar vetores enquanto da outra maneira tinhamos que usar o lapply pra isso.
+
+e) What happens if you use switch() with numeric values?
+
+Primeiro vamos analisar o que switch faz.
+
+Switch recebe uma expressão e retorna a operação a ser feita a partir da expressão recebida.
+```{r}
+x <- c(1,3,4,6,89,2)
+
+switch("mean",
+       mean = mean(x),
+       median = median(x),
+       max = max(x),
+       min = min(x))
+
+
+choose_summary <- function(x,type){
+  switch(type,
+       mean = mean(x),
+       median = median(x),
+       max = max(x),
+       min = min(x))
+}
+
+choose_summary(c(1,4,5,6,10,13,15),'mean')
+choose_summary(c(1,4,5,6,10,13,15),'median')
+choose_summary(c(1,4,5,6,10,13,15),'max')
+choose_summary(c(1,4,5,6,10,13,15),'min')
+```
+
+
+Quando usamos com valores númericos, a função retorna o elemento da posição n (n sendo o valor númerico passado)
+```{r}
+switch(3,
+       mean = mean(x),
+       median = median(x),
+       max = max(x),
+       min = min(x))
+```
+f) What does this switch() call do? What happens if x is “e”?
+
+```{r}
+x <- "a"
+
+switch(x, 
+  a = ,
+  b = "ab",
+  c = ,
+  d = "cd"
+)
+```
+Se pedirmos algo que não tem um papel designado ele o próximo que tem, se pedirmos algo que não está presente nos argumento o retorno é nada.
+
+## 19.5 Function Arguments
+
+Os argumentos de uma função costumam cair em uma de duas categorias, ou são dados para para que sejam computados. Ou são detalhes passados para como fazer a computação. EXs:
+
+- em log(), x são os dados e base são os detalhes. Nesse caso a base que o logaritimo sera calculado
+
+- em mean(), x são os dados, e os detalhes são trim e na.rm, que definem como sera calculado.
+
+- em t.test(), x e y são os dados, e os detalhes são alternative, mu, paired, var.equal e conf_level.
+
+- em str_c(), as podem ser fornecidas como dados e a concatenação por meio de collapse e sep são os detalhes.
+
+Geralmente argumentos de dados devem vir antes. Argumentos de detalhes devem ir para o fim e ter valores padrão.
+
+EX:
+
+```{r}
+# Compute confidence interval around mean using normal approximation
+mean_ci <- function(x, conf = 0.95) {
+  se <- sd(x) / sqrt(length(x))
+  alpha <- 1 - conf
+  mean(x) + se * qnorm(c(alpha / 2, 1 - alpha / 2))
+}
+
+x <- runif(100)
+mean_ci(x)
+
+mean_ci(x, conf = 0.99)
+```
+
+Os valores padrão devem quase sempre ser os valores mais comuns. Por exemplo na.rm = F, pois o ideal é que não ignoremos os dados faltantes.
+
+Quando chamamos uma função costumamos omitir o nome dos argumentos, porém quando queremos sobrepoor o valor de um detalhe é sempre bom fornecer o nome.
+```{r}
+# Good
+mean(1:10, na.rm = TRUE)
+
+# Bad
+mean(x = 1:10, , FALSE)
+mean(, TRUE, x = c(1:10, NA))
+```
+### 19.5.1 Choosing Names
+
+O nome de argumentos também são importantes, não para o r, mas para quem executa o código e usa aquela função. Geralmente nomes longos e bem descritivos, porém existem nomes memoráveis que devemos lembrar e podemos usar:
+
+- x, y, z: Vetores
+
+- w: Um vetor de pesos
+
+- df: Data Frame
+
+- i, j: Índices (tipicamente linhas e colunas)
+
+- n: Comprimento ou número de linhas
+
+- p: Número de colunas
+
+Podemos também usar nomes de funções existentes em funções do R, como por exemplo na.rm determinando a retirada de NAs.
+
+### 19.5.2 Checking Values
+
+Quando começamos a escrever mais funções podemos nos perder e esquecer o que cada função faz exatamente. Então começamos a chamar funções usando inputs inválidos. Para evitar isso podemos fazer restrições explícitas. Por exemplo, imagine que escrevemos funções para computar sumários estatísticos com pesos:
+
+```{r}
+wt_mean <- function(x, w) {
+  sum(x * w) / sum(w)
+}
+
+wt_var <- function(x, w) {
+  mu <- wt_mean(x, w)
+  sum(w * (x - mu) ^ 2) / sum(w)
+}
+
+wt_sd <- function(x, w) {
+  sqrt(wt_var(x, w))
+}
+```
+
+O que acontece se x e w tem comprimentos diferentes?
+
+```{r}
+wt_mean(1:6,1:3)
+```
+Devido ao r reciclar o vetor menor para que eles tenham o mesmo tamanho não temos um erro. Porém o resultado que achamos não é o desejado. Por isso é importante conferir alguns pré-requesitos, algumas condições no desenvolvimento da função usando uma comparação e um stop()
+
+```{r}
+wt_mean <- function(x, w) {
+  if (length(x) != length(w)) {
+    stop("`x` and `w` must be the same length", call. = FALSE)
+  }
+  sum(w * x) / sum(w)
+}
+```
+
+Uma função útil para que acompanha o stop e pode ajudar em diversas situações é stopifnot() que testa várias condições e para se encontrar alguma False.
+
+```{r}
+wt_mean <- function(x, w, na.rm = FALSE) {
+  stopifnot(is.logical(na.rm), length(na.rm) == 1)
+  stopifnot(length(x) == length(w))
+  
+  if (na.rm) {
+    miss <- is.na(x) | is.na(w)
+    x <- x[!miss]
+    w <- w[!miss]
+  }
+  sum(w * x) / sum(w)
+}
+
+wt_mean(1:6, 6:1, na.rm = F)
+
+```
+
+### 19.5.3 Dot-Dot-Dot(...)
+
+Muitas funções no r recebem um número arbitrário de inputs.
+
+```{r}
+sum(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+
+stringr::str_c("a", "b", "c", "d", "e", "f")
+
+```
+
+Como elas funcionam? Dependem de um argumento especial '...'. Esse argumento captura qualquer número de argumentos que não forem combinados. 
+
+Podemos mandar esses argumentos não combinados para outra função, podemos por exemplo criar funções que ajudam e são baseadas em str_c().
+
+```{r}
+commas <- function(...) stringr::str_c(..., collapse = ", ")
+commas(letters[1:10])
+
+rule <- function(..., pad = "-") {
+  title <- paste0(...)
+  width <- getOption("width") - nchar(title) - 5
+  cat(title, " ", stringr::str_dup(pad, width), "\n", sep = "")
+}
+  
+rule("Guto","Augusto")
+
+rule("Guto")
+```
+O problema que pode acontecer é que erros ortográficos podem passar e deixar erros pois são capturados.
+
+```{r}
+x <- c(1,2,3)
+
+sum(x,na.mr = T)
+```
+### 19.5.4 Lazy Evaluation
+
+Argumentos no R são avaliados de forma preguiçosa, ou seja, eles não são computados até serem necessários. Se eles nunca forem usados não serão chamados. Essa informação sobre o R é importante mas nem sempre quando estamos escrevendo nossas funções.
+
+### Exercícios 19.5.5
+
+a) What does commas(letters, collapse = "-") do? Why?
+
+```{r}
+# commas(letters, collapse = "-")
+```
+Retorna erro pois collapse não é um argumento da função commas, mas sim um argumento da função str_c() usada por commas.
+
+b) It’d be nice if you could supply multiple characters to the pad argument, e.g. rule("Title", pad = "-+"). Why doesn’t this currently work? How could you fix it?
+
+```{r}
+rule("Title",pad="-+")
+```
+Não funciona corretamente pois em dup o número de repetições para fechar a linha é definido pelas repetições de uma string de um caracte. Se alterassemos width para alterar em função do tamanho da string, funcionaria, vamos fazer isso agora.
+
+```{r}
+rule <- function(..., pad = "-") {
+  title <- paste0(...)
+  width <- (getOption("width") - nchar(title) - 5 ) /nchar(pad)
+  cat(title, " ", stringr::str_dup(pad, width), "\n", sep = "")
+}
+```
+```{r}
+rule("Olá_","Pessoas",pad="+-x/")
+```
+
+c) What does the trim argument to mean() do? When might you use it?
+
+O argumento trim retira dos vetor um percentual igual dos dados dos dois lados.
+
+Podemos retirar quando temos valores discrepantes que não queremos considerar.
+
+d) The default value for the method argument to cor() is c("pearson", "kendall", "spearman"). What does that mean? What value is used by default?
+
+Pelo nome e o vetor padrão esses devem ser os métodos que podem ser usados para calcular a correlação, o primeiro é usado como padrão.
+
+## 19.6 Return Values
+
+O que sua função retorna deve ser bem claro, afinal criamos ela para isso. Porém devemos lever duas coisas em conta quando retornando uma função.
+
+- Retornar mais cedo torna a função mais fácil de ser lida e entendida?
+
+- Você pode fazer sua função pipeavel?
+
+### 19.6.1 Explicit Return Statements
+
+O Valor retornado por uma função costuma ser o que foi feito pela última linha, porém podemos fazer com que o retorno seja outra coisa ou que retornemos mais cedo por meio de return(). Pode ser útil para funções que podem retornar cedo com uma solução mais simples. EX:
+
+```{r}
+complicated_function <- function(x, y, z) {
+  if (length(x) == 0 || length(y) == 0) {
+    return(0)
+  }
+    
+  # Complicated code here
+}
+```
+
+Outra utilidade é quando temos um if longo ou complicado e queremos conferir o else antes.
+
+EX ANTES:
+```{r}
+f <- function() {
+  if (x) {
+    # Do 
+    # something
+    # that
+    # takes
+    # many
+    # lines
+    # to
+    # express
+  } else {
+    # return something short
+  }
+}
+```
+
+DEPOIS:
+
+```{r}
+
+f <- function() {
+  if (!x) {
+    return(something_short)
+  }
+
+  # Do 
+  # something
+  # that
+  # takes
+  # many
+  # lines
+  # to
+  # express
+}
+```
+
+
+### 19.6.2 Writing Pipeable functions
+
+Quando queremos que uma função seja encaixado em uma sequência de pipes é importante saber seu retorno precisamente. Com o dplyr e tidyr o retorno será o dataframe para que possamos continuamente aplicar funções.
+
+Existem dois tipos de funções pipeaveis, side-effects e transformations. 
+
+- Transformations são funções que recebem um objeto e o objeto modificado de alguma maneira é retornado.
+
+- Side-Effects são funções que o que é passado não é alterado. A função faz uma ação, como salvar um arquivo ou imprimir um gráfico por exemplo. Nesses casos essa função deve retornar o que recebeu para que a sequência de pipes continue. Temos que retornar de maneira invísivel o que recebemos.
+
+Ex: Essa função imprime a quantidade de valores NA.
+
+```{r}
+show_missings <- function(df){
+  n <- sum(is.na(df))
+  cat("Missing Values:",n,"\n",sep="")
+  
+  invisible(df)
+}
+```
+
+Se chamarmos a função interativamente, o df não vai ser retornado mas ainda está lá.
+
+```{r}
+show_missings(mtcars)
+```
+```{r}
+x <- show_missings(mtcars)
+
+class(x)
+
+dim(x)
+```
+Dessa maneira podemos usar em um pipe.
+
+```{r}
+mtcars %>% 
+  show_missings() %>% 
+  mutate(mpg = ifelse(mpg < 20, NA, mpg)) %>% 
+  show_missings() %>% mutate()
+```
+
+## 19.7 Enviroment
+
+No r, o ambiente é considerado mesmo dentro das funções, podemos usar variáveis globais dentro das funções. Caso uma variável pedida pela função não tenha sido declarada dentro dela, o r procura essa variável no ambiente de trabalho.
+
+Esse função a seguir em muitas linguagens não funcionariam pois usamos y sem que ele seja definido.
+
+```{r}
+f <- function(x){
+  x + y
+}
+```
+
+```{r}
+y <- 100
+f(10)
+
+y <- 1000
+f(100)
+```
+```{r}
+`+` <- function(x, y) { 
+  sum(x, y) * 1.000000000001
+}
+```
+
+```{r}
+1+2
+
+1+2 == 3
+```
+```{r}
+rm(`+`)
+```
+

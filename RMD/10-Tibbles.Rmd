@@ -1,0 +1,218 @@
+---
+title: "10 - Tibbles"
+author: "Augusto de Souza Cavalcanti"
+date: "25/04/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(tidyverse)
+```
+
+## 10.1 Introduction
+
+Tibbles são alterações dos dataframes. Vamos discutir o pacote tibble nesse capítulo (presente no tidyverse). 
+
+## 10.1 Creating Tibbles
+
+Quase todas funções que usamos nessse livro produzem tibbles, dado que essas são a estrutura de dados mais comum no tidyverse. Mas muitos outros pacotes e dados usam dataframes. Então voce pode converter esses em tibbles.
+
+```{r}
+as_tibble(iris)
+```
+
+Você pode criar tibbles a partir de vetores individuais. Inputs de tamanho 1 serão reciclados e variáveis podem ser a partir de referências as que acabaram de ser criadas. 
+
+```{r}
+tibble(x=1:5,y=1,z = x**2+y,n = c('Guto','Bam','Bi','Norma','Ricardo'))
+```
+
+Note que diferente de data.frame(), tibbles não alteram strings para fatores, nunca muda o nome de variáveis e nunca dão cria nomes para as linhas.
+
+É possível que tibbles tenham nomes de colunas que não são válidas para nomes de variáveis no R. Para que isso aconteça elas devem vir cercadas de backsticks (`).
+
+```{r}
+tb <- tibble(`:)` = 'smile',` ` = 'space',`2000`='number')
+
+tb
+```
+
+Quando estiver usando essas variáveis em outros pacotes também devem ser usados os backsticks. EVITAR CRIAR VARIÁVEIS DeSSA MANEIRA.
+
+Outra maneira de criar tibbles é por meio do comando tribble que permite essa criação na maneira da leitura, para quantidades pequenas de dados é útil e o processo é feito com ~ para definir as colunas e , para separar os valores.
+
+```{r}
+tribble(~a,~b,~b2,
+        #-#--#---#
+        'oi',10,100,
+        'ola',2,4,
+        'tudo',3,9,
+        'bem',7,49)
+```
+
+## 10.3 Tibbles vs Data.Frame
+
+Existem duas pricipais diferenças no uso de tibbles e data.frames classicos: Impressão e Subsetting.
+
+### 10.3.1 Printing
+
+Tibbles tem um metódo de impressão melhorado que só mostra as 10 primeiras linhas e a quantidade de colunas que cabem na tela. Isso torna a visualização melhor. Além disso cada coluna informa seu tipo, funcionalidade importada do comando str().
+
+```{r}
+tibble(
+  a = lubridate::now() + runif(1e3) * 86400,
+  b = lubridate::today() + runif(1e3) * 30,
+  c = 1:1e3,
+  d = runif(1e3),
+  e = sample(letters, 1e3, replace = TRUE)
+)
+```
+
+Tibbles foram programadas para não sobrecarregar o sistema quando são pedidas grande impressões de dataframes. Mas as vezes é necessário imprimir mais dados que o pdarão e existem algumas maneiras de fazer isso.
+
+Primeiro podemos pedir o print explicitamente e controlar o número de linhas que quer e a largura delas, width = inf vai mostrar todas colunas.
+
+```{r}
+voos <- nycflights13::flights
+
+voos %>% print(n = 3)
+```
+Como estamos usando o rmarkdown o print já está otimizado e esses não alteram quando rodamos a chunk no rstudio.
+
+Outra opção é usar view para abir esse dataframe no rstudio. Essa opção permite uma boa visualização e filtros úteis.
+
+```{r}
+# nycflights13::flights %>% View
+```
+
+### 10.3.2 Subsetting
+
+Para fazer subsets precisamos sem o comando filter e select, precisamos usar $ e [[]]. Como o r padrão. 
+
+```{r}
+xs <- tibble(x=2:10,x2 = x**2)
+
+# Extrair pelo nome
+xs$x
+# ou
+xs[["x"]]
+
+# Extrair pela posição 
+xs[[2]]
+
+xs[[1]][3] # Elemento 3 da coluna 1
+```
+
+Para usar esse elementos em pipes é necessário usar um ponto antes deles.
+
+```{r}
+xs %>% .[[2]] %>% .[1]
+```
+## 10.4 Interacting with Older Code
+
+Algumas funções mais antigas não funcionam com tibbles, caso esse seja o caso temos que fazer as.data.frame() para que não ocorram erros.
+
+## Exerícios 10.5
+
+a) Como podemos saber se um objeto é uma tibble e não um data frame. Vamos usar mtcars de exemplo.
+
+Podemos usar a função is_tibble para testar se é um tibble.
+```{r}
+is_tibble(mtcars)
+```
+```{r}
+is_tibble(diamonds)
+
+is_tibble(nycflights13::flights)
+
+is_tibble(as_tibble(mtcars))
+```
+
+Existem diferenças também na impressão. 
+```{r}
+mtcars %>% print()
+```
+
+```{r}
+mtcars %>% as_tibble() %>% print()
+```
+O print vai somente até 10 linhas e as colunas tem seus tipos informados. N colunas e linhas podem ser alterados como dito anteriormente.
+
+b) Compare as seguintes operações em um dataframe e um tibble.
+
+Data Frame:
+```{r}
+df <- data.frame(abc = 1, xyz = "a")
+df$x
+df[, "xyz"]
+df[, c("abc", "xyz")]
+```
+Tibble:
+```{r}
+df <- tibble(abc = 1, xyz = "a")
+df$x
+df[, "xyz"]
+df[, c("abc", "xyz")]
+```
+
+O data frame automaticamente completa o nome da coluna quando não fazemos por completo, isso pode causar problemas caso tenhamos muitas colunas, tibbl só faz a impressão do que foi pedido. Além as opreações com [] retonam um tibble mesmo que sejam de apenas uma coluna enquanto com o df retornam somente se tiverem 2 ou mais.
+
+c) Se você tem o nome de uma variável em um objeto, como você pode selecionar a variável de um tibble?
+
+```{r}
+var <- 'drv'
+
+mpg[,var] 
+# ou
+mpg[[var]]
+```
+Não podemos usar $ pois ele considera o nome do que está sendo passado não o conteudo interno.
+
+d) Practice referring to non-syntactic names in the following data frame by:
+
+Extracting the variable called 1.
+
+Plotting a scatterplot of 1 vs 2.
+
+Creating a new column called 3 which is 2 divided by 1.
+
+Renaming the columns to one, two and three.
+
+```{r}
+annoying <- tibble(
+  `1` = 1:10,
+  `2` = `1` * 2 + rnorm(length(`1`))
+)
+```
+
+1) 
+```{r}
+annoying$`1`
+```
+2) 
+```{r}
+ggplot(annoying,aes(x=`1`,y=`2`)) + geom_point()
+```
+
+3) 
+
+```{r}
+annoying <- annoying %>% mutate(`3`= `2` / `1`)
+```
+
+4) 
+```{r}
+annoying %>% rename('one' = `1`,'two'=`2`,three =`3`)
+```
+
+e) O que tibble::enfame faz?
+
+Enframe converte vetores nomeados ou listas em dataframes com nomes e valores:
+
+```{r}
+enframe(c(a=1,b=2,c=3))
+```
+
+f) O argumento n_extra determina quantas colunas do fundo da tibble são impressas.
+

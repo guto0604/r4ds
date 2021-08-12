@@ -1,0 +1,909 @@
+---
+title: "21- Iteration"
+author: "Augusto de Souza Cavalcanti"
+date: "08/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(tidyverse)
+```
+
+## 21.1 Introduction
+
+Já discutimos a importância de diminuir as repetições no seu código por meio de funções. Nesse capítulo vamos olhar para loops sob duas óticas da programação imperativa e programação funcional. No lado imperativo temos loops while e for. E em programação funcional temos ferramentas para que cada parte que um loop faria receba sua própria função, quando masterizamos programação funcional (FP) podemos resolver muitos problemas de iteratividade com menos código, mais facilidade e menos erros.
+
+## 21.2 For Loops
+
+Loops for, nada de diferente do geral. Vamos calcular as mediana de cada coluna.
+
+```{r}
+df <- tibble(
+  a = rnorm(10),
+  b = rnorm(10),
+  c = rnorm(10),
+  d = rnorm(10)
+)
+```
+
+Podemos fazer de maneira manual.
+
+```{r}
+median(df$a)
+
+median(df$b)
+
+median(df$c)
+
+median(df$d)
+
+```
+
+Porém repetimos e alteramos o código toda vez, poderiamos criar uma função também. Mas o metódo mais eficiente seria por meio de um loop pelas colunas.
+
+```{r}
+medianas <- vector("double",length(df))
+
+for(i in seq_along(df)){
+  medianas[[i]] <- median(df[[i]])
+}
+
+medianas
+```
+
+Todo loope têm três componentes:
+
+1- O output: Sempre que começãmos o loop é ideal que seja alocado o espaço necessário, para isso podemos usar vector com os argumentos do tipo do vetor e o tamanho. Isso é importante para eficiência, se criarmos o loop usando c() em cada iteração o loop fica muito lento.
+
+2- A Sequência: Isso determina o que o loop irá percorrer, i in seq_along(df) determina que as colunas do dataframe seriam percorridas.
+
+Seq_along é uma versão de 1:length(l) porém se comporta melhor quando temos um vetor de tamanho 0 considera como vetor nulo.
+
+3- O corpo do loop: Essa parte é o código que é repetido com valores diferentes de i.
+
+### Exercícios 21.2.1
+
+a) Write for loops to:
+
+Compute the mean of every column in mtcars.
+Determine the type of each column in nycflights13::flights.
+Compute the number of unique values in each column of iris.
+Generate 10 random normals from distributions with means of -10, 0, 10, and 100.
+
+```{r}
+mediasmtcars <- vector("double",length(mtcars))
+
+for(i in seq_along(mtcars)){
+  mediasmtcars[[i]] <- mean(mtcars[[i]])
+}
+
+mediasmtcars
+```
+```{r}
+tipos <- vector("character",length(nycflights13::flights))
+
+for(i in seq_along(nycflights13::flights)){
+  tipos[[i]] <- typeof(nycflights13::flights[[i]])
+}
+
+tipos
+```
+
+```{r}
+nuniquei <- vector("integer",length(iris))
+
+for(i in seq_along(iris)){
+  nuniquei[[i]] <- length(unique(iris[[i]]))
+}
+
+nuniquei
+```
+Resolvi complicar um pouco mais para tentar, coloquei na lista não 10 valores de uma normal com aquela méida, mas sim 10 distribuições com 10 valores para cada média.
+```{r}
+medias <- c(-10,0,10,100)
+distribui <- vector('list',length = length(medias))
+
+for(i in seq_along(medias)){
+  for(j in 1:10){
+     distribui[[i]][j] <- list(rnorm(10,mean=medias[[i]]))
+  }
+}
+```
+ 
+
+b) Eliminate the for loop in each of the following examples by taking advantage of an existing function that works with vectors:
+
+```
+out <- ""
+for (x in letters) {
+  out <- stringr::str_c(out, x)
+}
+
+x <- sample(100)
+sd <- 0
+for (i in seq_along(x)) {
+  sd <- sd + (x[i] - mean(x)) ^ 2
+}
+sd <- sqrt(sd / (length(x) - 1))
+
+x <- runif(100)
+out <- vector("numeric", length(x))
+out[1] <- x[1]
+for (i in 2:length(x)) {
+  out[i] <- out[i - 1] + x[i]
+}
+```
+Juntar string caracteres:
+
+```{r}
+out <- str_c(letters,collapse = '')
+```
+
+Desvio:
+
+```{r}
+x<-sample(100)
+sd(x)
+```
+Total cumulativo:
+
+```{r}
+x<- runif(100)
+
+cumsum(x)
+```
+
+c) It’s common to see for loops that don’t preallocate the output and instead increase the length of a vector at each step:
+
+```
+output <- vector("integer", 0)
+for (i in seq_along(x)) {
+  output <- c(output, lengths(x[[i]]))
+}
+output
+```
+How does this affect performance? Design and execute an experiment.
+
+Podemos fazer o teste usando microbenchmark e criando duas funções.
+
+```{r}
+sem_alocar <- function(x){
+  saida <- c()
+  for(i in 1:x){
+    saida <- c(saida,i)
+  }
+  saida
+}
+
+alocando <- function(x){
+  saida <- vector("integer",length = x)
+  for(i in seq_along(saida)){
+    saida[i] <- i
+  }
+  saida
+}
+
+alocando(100)
+sem_alocar(100)
+```
+
+Testando
+```{r}
+microbenchmark::microbenchmark(alocando(10000),sem_alocar(10000),times = 10)
+```
+
+```{r}
+fatorial <- function(x){
+  for(i in (x-1):1){
+    x <- x*i
+  }
+  x
+}
+
+microbenchmark::microbenchmark(fatorial(14),factorial(14),times=10)
+```
+
+## 21.3 For loop Variations
+
+Existem algumas varições que devem ser conhecidas. Também servem para tecnícas de FP. Existem quatro variações do tema básico do loop.
+
+1- Modificar um objeto existente ao invés de criar um novo.
+
+2- Loops sob valores ou nomes, e não índices.
+
+3- Lidar com outputs de tamanho desconhecido.
+
+4- Lidar com sequências de tamanho desconhecido.
+
+### 21.3.1 Modifying an existing object
+
+Teremos situações que queremos modificar um objeto, não criar um novo. Como exemplo podemos lembrar da função de reescalar entre 0 e 1 na parte de funções. A seguir como fizemos:
+
+```{r}
+df <- tibble(
+  a = rnorm(10),
+  b = rnorm(10),
+  c = rnorm(10),
+  d = rnorm(10)
+)
+
+rescale01 <- function(x) {
+  rng <- range(x, na.rm = TRUE)
+  (x - rng[1]) / (rng[2] - rng[1])
+}
+
+df$a <- rescale01(df$a)
+df$b <- rescale01(df$b)
+df$c <- rescale01(df$c)
+df$d <- rescale01(df$d)
+```
+
+Para resolver esse problema com um for temos que pensar nos três componentes:
+
+1- Output: Já sabemos que o output será o mesmo que o input
+
+2- Sequence: Podemos pensar no dataframe como uma lista de colunas, então podemos iterar pelas colunas com seq_along(df)
+
+3- Body: Aplicar a função rescale01()
+
+```{r}
+df <- tibble(
+  a = rnorm(10),
+  b = rnorm(10),
+  c = rnorm(10),
+  d = rnorm(10)
+)
+
+for(i in seq_along(df)){
+  df[[i]] <- rescale01(df[[i]])
+}
+```
+
+### 21.3.2 Looping Patterns
+
+Existem três maneiras principais de aplicar um loop sobre um vetor:
+
+1- Sobre os índices dos elementos, como já fizemos. (i in seq_along(xs)) e no corpo usamos xs[[i]]
+
+2- Outra maneira é sobre os próprios elementos. for(i in xs)
+
+3- Sobre os nomes dos elementos. for(nm in names(xs)) podemos assim acesar o valor por meio de xs[[nm]]
+
+### 21.3.3 Unknown output length
+
+Temos vezes que não sabemos o tamanho do output. Vamos supor que queremos simular o vetores aleatórios de tamanhos aleatórios. Podemos ficar tentados a resolver esse problema crescendo o vetor progressivamente:
+
+```{r}
+
+means <- c(0, 1, 2)
+
+output <- double()
+for (i in seq_along(means)) {
+  n <- sample(100, 1)
+  output <- c(output, rnorm(n, means[[i]]))
+}
+
+output
+```
+
+Apesar dessa solução ser tentadore ele é extremamente ineficaz como vimos previamente. Uma solução melhor seria salvar cada elemento em uma lista e remover o formato de lista depois.
+
+```{r}
+out <- vector("list", length(means))
+for (i in seq_along(means)) {
+  n <- sample(100, 1)
+  out[[i]] <- rnorm(n, means[[i]])
+}
+out
+
+unlist(out)
+
+```
+
+Unlist torna uma liste em um vetor. Outra opção válida é purr::flatten_dbl() que retorna um erro caso o input não seja uma lista de doubles.
+
+Esse padrão pode acontecer em outros locais e a solução é parecida. EX:
+
+1- Podemos estar gerando uma string longa. Ao invés de usar str_c() ou paste() repetidamente, podemos salvar cada elemento em um espaço da lista ou vetor e usar collapse no final.
+
+2- Podemos estar gerando um dataframe grande. Ao invés de usar rbind() toda vez, o que copiaria o dataframe diversas vezes, podemos salvar o output de cada iteração em uma lista e usar dplyr::bind_rows() para combinar.
+
+### 21.3.4 Unknown Sequence Length
+
+Existem situações que não sabemos nem o quão longa a sequência do input deve ser. Isso é comum quando estamos fazendo simulações. Por exemplo queremos fazer um loop até que tenhamos três caras seguidas em uma moeda. Para esses casos é melhor usar um while. Vamos fazer o exemplo dado acima.
+
+```{r}
+moeda <- function() sample(c("Cara","Coroa"),1)
+
+nseguidas <- function(x){
+  jogadas <- 0
+  carasseg <- 0
+
+  while(carasseg < x){
+    if(moeda()=='Cara'){
+      carasseg <- carasseg + 1 
+    } else carasseg <- 0
+    jogadas <- jogadas + 1
+  }
+  jogadas
+}
+```
+
+```{r}
+lapply(rep(10,each=30),nseguidas) %>% unlist() %>% mean()
+```
+
+### Exercícios 21.3.5
+
+```
+a)Imagine you have a directory full of CSV files that you want to read in. You have their paths in a vector, files <- dir("data/", pattern = "\\.csv$", full.names = TRUE), and now want to read each one with read_csv(). Write the for loop that will load them into a single data frame.
+```
+
+lidos <- vector("list",length(files))
+for(i in seq_along(files)){
+  lidos[[1]] <- read.csv(files[[i]])
+}
+
+dplyr::bind_rows(lidos)
+
+b) What happens if you use for (nm in names(x)) and x has no names? What if only some of the elements are named? What if the names are not unique?
+
+se não tem nomes retorna vazio, se apenas alguns tem nome erro. Se os nomes não são unicos retorna o da primeira aparição.
+
+c) Write a function that prints the mean of each numeric column in a data frame, along with its name. For example, show_mean(iris) would print:
+
+```{r}
+x <- vector("list",length = length(iris))
+
+for(i in seq_along(iris)){
+  if(is.numeric(iris[[i]])){
+    x[[i]] <- mean(iris[[i]])
+  } else x[[i]] <- NA
+}
+
+x1 <-unlist(x)
+x1 <- x1[!is.na(x1)]
+for(i in seq_along(x1)){
+  cat(names(iris)[[i]],":",x1[[i]],"\n")
+}
+```
+d) What does this code do? How does it work?
+
+
+```{r}
+trans <- list( 
+  disp = function(x) x * 0.0163871,
+  am = function(x) {
+    factor(x, labels = c("auto", "manual"))
+  }
+)
+for (var in names(trans)) {
+  mtcars[[var]] <- trans[[var]](mtcars[[var]])
+}
+```
+
+Essa função altera o data.frame, mtcars para que esse multiplique o valor de displacement e altere o nome dos níveis do fator da transmissão;
+
+### 21.4 For loops vs. Functionals
+
+Loops for não são tão importantes no R pois o R é uma linguagem de programação funcional. Isso é, permite que possamos passar funções para funções e loops. Vamos explicar melhor:
+
+Vamos reconsiderar o cálculo das médias do dataframe:
+
+```{r}
+df <- tibble(
+  a = rnorm(10),
+  b = rnorm(10),
+  c = rnorm(10),
+  d = rnorm(10)
+)
+```
+ 
+Você pode fazer isso por meio de um loop for.
+
+```{r}
+output <- vector("double", length(df))
+for (i in seq_along(df)) {
+  output[[i]] <- mean(df[[i]])
+}
+output
+
+```
+Porem vamos querer calcular a média de dataframe com certa frequência, então podemos colocar isso em uma função.
+
+```{r}
+col_mean <- function(df) {
+  output <- vector("double", length(df))
+  for (i in seq_along(df)) {
+    output[i] <- mean(df[[i]])
+  }
+  output
+}
+col_mean(df)
+```
+Podemos quere calcular também a mediana e desvio padrão, dessa maneira podemos criar funções para isso.
+
+```{r}
+col_median <- function(df) {
+  output <- vector("double", length(df))
+  for (i in seq_along(df)) {
+    output[i] <- median(df[[i]])
+  }
+  output
+}
+col_sd <- function(df) {
+  output <- vector("double", length(df))
+  for (i in seq_along(df)) {
+    output[i] <- sd(df[[i]])
+  }
+  output
+}
+col_median(df)
+col_sd(df)
+```
+
+Podemos fazer isso, porém percebemos que copiamos e colamos o texto duas vezes, quebrando nossa regra inicial para isso. Vamos dar uma olhada em um exemplo e o que fariamos no caso:
+
+```{r}
+f1 <- function(x) abs(x - mean(x)) ^ 1
+f2 <- function(x) abs(x - mean(x)) ^ 2
+f3 <- function(x) abs(x - mean(x)) ^ 3
+```
+
+Podemos claramente ver a repetição do código e passar o valor para um argumento.
+
+```{r}
+f <- function(x,i) abs(x - mean(x)) ^ i
+```
+
+Reduzimos muito o código e ainda diminuimos a chance de erros na criação. 
+
+Pelo fato do R ser uma lingugem de programação funcional, podemos fazer exatamente a mesma coisa com col_mean(), col_median() e col_sd(), fornecendo a função como um argumento.
+
+```{r}
+col_summary <- function(df,funcao) {
+  output <- vector("double", length(df))
+  for (i in seq_along(df)) {
+    output[i] <- funcao(df[[i]])
+  }
+  output
+}
+
+col_summary(df,mean)
+col_summary(df,median)
+col_summary(df,sd)
+```
+
+Pelo resto desse capítulo trataremos do pacote purr que é focado em programação funcional, ele fornece várias funções interessantes para substituir loops. Funções como as da família apply são oferecidas pelo pacote mas elas são mais consistentes e faceís de aprender.
+
+### Exercícios 21.4.1
+
+a) Read the documentation for apply(). In the 2d case, what two for loops does it generalise?
+
+A função apply substitui os loops para matrizes ou dataframes feitos sobre colunas ou linhas. A função tem o formato apply(X,MARGIN,FUN,...) X é o objeto a ser percorrido, MARGIN informa se a operação deve ser feita sobre as linhas (MARGIN = 1) ou colunas (MARGIN = 2). FUN é a função a ser usada. e ... são argumentos extras que são passados para a função sendo aplicada.
+
+```{r}
+X <- matrix(rnorm(15),nrow=5)
+X
+```
+
+```{r}
+apply(X,MARGIN = 1,mean) # Média das linhas
+
+apply(X,MARGIN = 2,mean) # Média das colunas
+```
+
+b) Adapt col_summary() so that it only applies to numeric columns You might want to start with an is_numeric() function that returns a logical vector that has a TRUE corresponding to each numeric column.
+
+```{r}
+col_summary <- function(df,funcao){
+  
+  tipos <- vector('logical',length = length(df))
+  for(i in seq_along(df)){
+    tipos[[i]] <- is.numeric(df[[i]])
+  }
+  
+  # Descobir quais os indíces das colunas numericas
+  idx <- which(tipos)
+  
+  output <- vector("double",length(idx))
+  for(i in seq_along(idx)){
+    output[[i]] <- funcao(df[[idx[[i]]]])
+  }
+  names(output) <- names(df)[idx]
+  output
+}
+
+col_summary(df,mean)
+```
+
+## 21.5 The map functions
+
+O padão de fazer um loop sobre um vetor, fazendo aluma operação e salvando cada resultado é tão comum que o purr fornece uma família para isso. Existe uma função para cada tipo de output.
+
+map() makes a list.
+map_lgl() makes a logical vector.
+map_int() makes an integer vector.
+map_dbl() makes a double vector.
+map_chr() makes a character vector.
+
+Cada função recebe um vetor de input e retorna um vetor de tamanho igual e com o mesmo nome com os resultados.
+
+Apesar dessas funções serem mais rápidas que loops, muitas situações podemos usar um loop caso a implementação com o map seja difícil. Vamos fazer o que fizemos anteriormente só que usando map.
+
+```{r}
+map_dbl(df,mean)
+map_dbl(df,median)
+map_dbl(df,sd)
+```
+
+Podemos usar pipes e essas funções são interessantes pois focamos mais no que elas estão fazendo do que nas peculiaridades e funcionamento do loop.
+
+```{r}
+df %>% map_dbl(mean)
+
+df %>% map_dbl(median)
+
+df %>% map_dbl(sd)
+```
+
+Existem algumas diferenças entre map_*() e col_summary():
+
+- Todas funções do purr são implementadas em C. Isso faz com que elas sejam um pouco mais rapídas.
+
+- O segundo argumento, .f, a função a ser aplicada, pode ser uma fórmula, um vetor de caracteres, ou um vetor de inteiros. Vamos aprender um pouco sobre esses atalhos (shortcuts).
+
+- map_*() usa o argumento ... para passar argumentos extras para .f sempre que chamamos.
+
+```{r}
+map_dbl(df, mean, trim = 0.2)
+```
+
+- Os nomes são preservados:
+
+```{r}
+z <- list(x = 1:3, y = 4:5)
+map_int(z, length)
+```
+
+### 21.5.1 Shortcuts
+
+Existem alguns atalhos que podemos usar com .f para economizar um pouco de tempo e digitação. Imagine que queremos encaixar um modelo linear para cada grupo de mtcars, dividido baseado no número de cilindros.
+
+```{r}
+models <- mtcars %>% 
+  split(.$cyl) %>% 
+  map(function(df) lm(mpg ~ wt, data = df))
+```
+
+### 21.5.3 Base R
+
+Se você conhece a família apply, pode ter notado familiaridades com as funções do purr.
+
+- lapply() é equivalente a map(), mas map é mais consistentes.
+
+Existem muitas outras coisas parecidas com pequenas diferenças, na prática podemos aprender essas similaridades e diferenças.
+
+### Exercícios 21.5.4
+
+a) Write code that uses one of the map functions to:
+
+Compute the mean of every column in mtcars.
+Determine the type of each column in nycflights13::flights.
+Compute the number of unique values in each column of iris.
+Generate 10 random normals from distributions with means of -10, 0, 10, and 100.
+
+```{r}
+map_dbl(mtcars,mean)
+```
+```{r}
+map_chr(nycflights13::flights,typeof)
+```
+```{r}
+map_int(iris,n_distinct)
+```
+```{r}
+map(c(-10,0,10,100),~rnorm(n=10,mean=.))
+```
+
+b) How can you create a single vector that for each column in a data frame indicates whether or not it’s a factor?
+
+```{r}
+map_lgl(diamonds,is.factor)
+```
+
+c) What happens when you use the map functions on vectors that aren’t lists? What does map(1:5, runif) do? Why?
+
+```{r}
+map(1:10,~.-1)
+```
+
+A função é aplicada em cada elemento.
+
+```{r}
+map(1:5, runif)
+```
+Geramos 5 distribuições normais, cada uma com o argumento n igual o equivalente.
+
+d)What does map(-2:2, rnorm, n = 5) do? Why? What does map_dbl(-2:2, rnorm, n = 5) do? Why?
+
+```{r}
+map(-2:2, rnorm, n = 5)
+```
+
+Nesse caso o argumento passado vai para o próximo depois de n e aplica uma vez em cada, nesse caso cria 5 amostras com n 5 e méida variando entre -2 e 2.
+
+```{r}
+# map_dbl(-2:2, rnorm, n = 5)
+```
+
+Retorna erro pois o que é retornado não é um double e sim uma lista.
+
+
+e) Rewrite 
+x <- split(mtcars, mtcars$cyl)
+map(x, function(df) lm(mpg ~ wt, data = df)) 
+to eliminate the anonymous function.
+
+```{r}
+x <- split(mtcars, mtcars$cyl)
+map(x,~lm(mpg~wt,data=.))
+```
+
+
+## 21.6 Dealing with failure
+
+Quando usamos a função map para fazer repetir muitas operações existe a uma boa possibilidade que uma delas falhe. Quando isso acontece recebemos um erro e nenhum output. Dessa maneira um erro impede que acessemos os outros sucessos, como podemos evitar que isso aconteça?
+
+Nessa parte aprenderemos um pouco sobre a função safely(). Essa função recebe outrafunção e retorna uma versão modificada. A versão modificada nunca retorna um erro. Ela sempre retorna uma lista com dois elementos:
+
+1- Result = O resultado original, se houve um erro retorna NULL
+
+2- Error = Um objeto erro. Se a operação der certo isso retorna NULL
+
+Ela parece com a função try() do r base. Vamos ilustrar ela com log.
+
+```{r}
+safe_log <- safely(log)
+
+safe_log(10)
+
+safe_log('a')
+```
+safely() foi programada para trabalhar com map()
+
+```{r}
+x <- list(1, 10, "a")
+y <- x %>% map(safely(log))
+y
+```
+Seria mais fácil trabalhar se tivessemos duas lista, uma dos erros e uma dos acertos. Podemos fazer isso com transpose.
+
+```{r}
+y <- transpose(y)
+y
+```
+Decidir como lidar com os erros é papel nosso. É normal que olhemos para os valores de x onde y retornou erro, ou usamos os valores de y que foi ok.
+
+```{r}
+is_ok <- y$error %>% map_lgl(is_null)
+x[is_ok]
+```
+o purr fornece dois advérbios que ajudam. Além do safely(), temos possibly() que faz o mesmo porém passamos um valor para ser retornado nos locais de erro.
+
+```{r}
+x <- list(1,10,'a')
+x %>% map_dbl(possibly(log,NA_real_))
+```
+
+quietly() faz a mesma coisa que safely(), mas ao invés de capturar erros, ele captura outputs que foram printados, mensagens e avisos.
+
+```{r}
+x <- list(1,-1)
+
+x %>% map(quietly(log)) %>% str
+```
+
+
+## 21.7 Mapping Over multiple arguments
+
+Até agora mapeamos sobre um input sendo alterado, porém existem situações que queremos alterar vários inputs fazer as operações com eles paralelamente. Isso é feito por map2() e pmap(). Imagine que queremos simular algumas distribuições normais com médias diferentes.
+
+```{r}
+mu <- list(5, 10, -3)
+
+mu %>% map(rnorm,n=5) %>% str
+```
+Mas e se quisessemos altear os desvios padrão, poderiamos fazer isso com um loop, ou também com map2.
+
+```{r}
+sigma <- c(1,5,10)
+
+map2(mu,sigma,rnorm,n=5)
+```
+A função map2 gera diversas funções recebendo os argumentos dos vetores paralelamente, os vetores contendo os valores desejados que mudam devem vir antes. Os argumentos que não alteram devem vir depois da função.
+
+Poderiamos também imaginar as funções map3(), map4()... porém o purr fornece a função pmap() para isso que recebe uma lista de argumentos.
+
+```{r}
+n <- c(1,3,5)
+args <- list(n,mu,sigma)
+
+args %>% pmap(rnorm) %>% str
+```
+
+Se você não nomear os argumentos na lista, pmap vai fazer a combinação posicionalmente. Porém dar nome para os elementos é mais seguro.
+
+```{r}
+args <- list(n = n, mean=mu, sd=sigma)
+
+args %>% pmap(rnorm) %>% str 
+```
+
+Como os argumentos são todos do mesmo tamanho faz sentido armazena-los em um df.
+
+```{r}
+params <- tibble(n = n, mean = mu, sd = sigma)
+params %>% pmap(rnorm)
+```
+ 
+Quando o código começa a ficar mais complicado é ideal que transformemos em um df para organizar.
+
+### 21.7.1 Invoking different functions 
+
+Existe algo ainda um pouco mais complexo que alterar os argumentos. Podemos também alterar a própria função.
+
+Para esse caso podemos usar invoke_map(), o funcionamento fica mais fácil de entender vendo a função.
+
+```{r}
+f <- c("runif", "rnorm", "rpois")
+param <- list(
+  list(min = -1, max = 1), 
+  list(sd = 5), 
+  list(lambda = 10)
+)
+```
+
+Temos que criar um vetor com as funções que vao ser aplicadas e uma lista com lista com os paramêtros de cada.
+
+```{r}
+invoke_map(f, param, n = 5) %>% str()
+```
+
+Podemos novamente usar um dataframe e ainda aplicar nele mesmo
+
+```{r}
+sim <- tribble(
+  ~f,      ~params,
+  "runif", list(min = -1, max = 1),
+  "rnorm", list(sd = 5),
+  "rpois", list(lambda = 10)
+)
+sim %>% 
+  mutate(sim = invoke_map(f, params, n = 10))
+```
+
+## 21.8 Walk
+
+Walk é uma alternativa para map quando desejamos chamar uma função pelos seus side effects e não o valor que retorna. Normalmente fazemos isso quando queremos os outputs na tela ou salvar um arquivo, o importante é a ação não o valor retornado.
+
+```{r}
+x <- list(1,'a',3)
+
+x %>% walk(print)
+```
+walk não é a versão mais usada, walk2 e pwalk são mais comumente usadas para diversas funções como para salvar gráficos e imagens tendo a função a ser executada e o local.
+
+
+## 21.9 Other Patterns of for loops
+
+O purr contém outras funções que fazem o que várias situações de loop for fazem. Vamos dar uma passada rapída por algumas para que tenhamos o conhecimento caso precisemos em situações específicas.
+
+### 21.9.1 Predicate Functions
+
+Variás funções funcionam com funções de predicado que discartam ou mantém baseado em um vetor lógico.
+
+keep e discard:
+
+```{r}
+iris %>% discard(is.factor) %>%  str
+```
+
+```{r}
+iris %>% keep(is.factor)
+```
+
+some e every: determinam se o predicado é verdade para alguns ou para todos de uma comparação. Lembram any e all
+
+```{r}
+x <- list(1:5, letters, list(10))
+
+x %>% 
+  some(is_character)
+
+
+x %>% 
+  every(is_vector)
+
+```
+
+detect() encontra o primeiro elemento onde um predicado é verdadeiro. detect_index() retorna a posição.
+```{r}
+x <- seq(0,100,by=10)
+
+x %>% detect(~. >23)
+
+x %>% detect_index(~. > 23)
+```
+head_while e tail_while, recebem elementos do ínico ou final de um vetor enquanto uma condição for atendida.
+
+```{r}
+x %>% head_while(~. < 34)
+
+x %>% tail_while(~. > 67)
+```
+### 21.9.2 Reduce and accumulate
+
+Temos situações que queremos reduzir uma lista complexa para uma lista simples repetindo uma função que altera isso. Por exemplo podemos ter uma lista de dataframes e queremos reduzir para um unico por meio de join dos elementos.
+
+```{r}
+dfs <- list(
+  age = tibble(name = "John", age = 30),
+  sex = tibble(name = c("John", "Mary"), sex = c("M", "F")),
+  trt = tibble(name = "Mary", treatment = "A")
+)
+
+dfs %>% reduce(full_join)
+
+```
+
+Ou temos uma lista de vetores e queremos a interseção.
+
+```{r}
+vs <- list(
+  c(1, 3, 5, 6, 10),
+  c(1, 2, 3, 7, 8, 10),
+  c(1, 2, 3, 4, 8, 9, 10)
+)
+
+vs %>% reduce(intersect)
+
+```
+Reduce() recebe uma função "binária" e a repete entre os elementos até que tenhamos apenas um elemento.
+
+accumulate() faz o mesmo porém os vetores interinos são mantidos.
+
+```{r}
+vs %>% accumulate(intersect)
+```
+
+### Exercícios 21.9.3 Exercícios
+
+a) Implement your own version of every() using a for loop. Compare it with purrr::every(). What does purrr’s version do that your version doesn’t?
+
+```{r}
+my_every <- function(x,funcao){
+  for(i in x){
+    if(!funcao(i)){
+      return(FALSE)
+    }
+  }
+  TRUE
+}
+```
+
+A função do purr pode receber predicados ao invés de funções.
+
+
+b) Create an enhanced col_summary() that applies a summary function to every numeric column in a data frame.
+
+```{r}
+col_summary <- function(x,func){
+  
+  x <- keep(x,is.numeric)
+  map(x,func)
+  
+}
+```
+

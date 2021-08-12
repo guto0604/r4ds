@@ -1,0 +1,180 @@
+---
+title: "11-DataImport"
+author: "Augusto de Souza Cavalcanti"
+date: "25/04/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+## 11.2 Getting Started
+
+Vamos usar o pacote Readr nessa parte, a maioria das funções do pacote readr tem como objetivo transformar arquivos retangulares em dataframes:
+
+- read_csv(): Faz a leitura de arquivos separados por ,
+- read_csv2(): Faz a leitura de arquivos separados ;
+- read_tsv(): Faz a leitura de arquivo delimitados por tab
+- read_delim(): Faz a leitura de arquivos delimitados por qualquer delimitador
+
+- read_fwf(): Leitura de arquivos separados por espaçamento fixo. Largura Fixa
+Pode ser especificado pelas suas larguras ou pelos com fwf_widths() ou pelas posições fwf_positions()
+
+- read_log(): leitura de arquivos no formato Apache log.
+
+Todas essas funções tem sintaxe, quando aprendemos uma bem conseguimos entender as outras com facilidade, pelo resto do capítulo focaremos em read_csv(). Pois são os mais comuns e os aprendizados são facilmente aplicados as outras.
+
+\
+
+O primeiro argumento de read_csv() é o caminho até o arquivo(). Como estamos em um projeto que já está com o diretório de onde o arquivo está ajustado, podemos apenas fornecer o arquivo, mas poderiamos informar o caminho completo também, o que faremos.
+
+```{r}
+## Para rodas configurar diretorio corretamente com setwd
+
+# setwd(Local da pasta)
+
+suicidio <- read_csv('suicide.csv')
+
+```
+
+Se a codificação do arquivo estivesse em UTF-8, teriamos que fornecer o argumento encoding 'UTF-8' e a usar a função read.csv 
+
+Por padrão a função sempre considera a primeira linha como cabeçalho, podemos alterar isso por meio de alguns argumentos.
+
+- skip = n faz com que as n 
+- comment = '#' ignora as linhas começadas com o que foi passado e considera comentarios
+
+```{r}
+read_csv('Primeira linha de outras informações
+         outra linha que não são dados
+         a,b,c
+         1,2,3',skip=2)
+
+read_csv('a,b,c
+         1,2,3
+         #pula essa aqui
+         4,5,6
+         #ignora aqui tambem',comment='#')
+```
+
+- Os dados podem não conter nomes de colunas, com isso passamos FALSE para col_names.
+
+```{r}
+read_csv('1,2,3
+         4,5,6
+         7,8,9',col_names=F)
+```
+
+`\n` é outra maneira de passar linhas, além disso caso as colunas não tenham nomes podemos passar em um vetor em col_names.
+
+```{r}
+read_csv('1,2,3\n4,5,6',col_names = c('a','b','c'))
+```
+
+Outro argumento que pode ser passado é o NA, isso específica qual simbolo está sendo usado para especificar NA no seu arquivo.
+
+```{r}
+read_csv('a,b,c
+         1,,3
+         4,.,6
+         .,4,.',na='.')
+```
+
+Isso é o principal necessário para fazer a leitura para a maioria dos arquivos encontrados normalmente.
+
+### 11.2.1 Compared to base r
+
+Diferenças para read.csv:
+
+- São bem mais rápidas que as funções base do r. A função data.table::fread() é realmente a mais rápida, porém não se encaixa direito com objetos do tidyverse.
+
+- Produzem tibbles, não convertem vetores de characteres para fatores, não criam nomes para as linhas.
+
+- São mais adapteveis para qualquer sistema, diferente das funções da base que herdam algumas características do seu sistema operacional.
+
+### Exercícios 11.2.2
+
+a) Qual arquivo usaria para ler arquivos separados por | ?
+
+read.delim() e fornecer o delimitador.
+
+```{r}
+read_delim('a|b|c
+           1|2|3
+           4|5|6',delim='|')
+```
+
+b) Quais argumentos além de file,skip e comment read_csv e read_tsv tem em comum? 
+
+- col_names : fornecer o nome das colunas ou se esses nomes existem.
+
+- col_types : Permite especificar o tipo das colunas que estão sendo lidas
+
+- locale : Permite informar as especificações de localidade para ler horarios, codificação e outros corretamente
+
+- na : Maneira como na foram escritos no arquivo
+
+- quote : Caractere usado para representar strings.
+
+- quoted_na : Maneira como aspas sem nada dentro devem ser tratadas (string vazio ou NA) 
+
+- trim_ws : Informar se o espaço em branco no começo e final de cada campo antes da criação
+
+- n_max: Numero máximo de linhas para ler
+
+- guess_max: máximo numero de linhas para serem usadas para advinhar o tipo de cada coluna
+
+- progress: Apresentar uma barra de progresso
+
+- skip_empty_rows : Se linhas vazias devem ser ignoradas ou tratadas como NA em todas colunas
+
+c) Quais os argumentos mais importantes para read_fwf?
+
+- file, col_positions (posição de cada linha).
+
+- fwf_positions: Função de argumento contendo (start,end) 
+
+- fwf_width: Função de argumento contendo (width) Espessura das linhas.
+
+d) Quais argumentos precisamos fornecer para ler o csv a seguir a,b como um uníco valor?
+
+```
+"x,y\n1,'a,b'"
+```
+
+Temos que fornecer em quote o valor \' ou ' dentro de uma string.
+
+```{r}
+read_csv("x,y\n1,'a,b'",quote = "\'")
+```
+
+e) Indentifique o que há de errado em cada um dos csv a seguir.
+
+``` 
+read_csv("a,b\n1,2,3\n4,5,6")
+read_csv("a,b,c\n1,2\n1,2,3,4")
+read_csv("a,b\n\"1")
+read_csv("a,b\n1,2\na,b")
+read_csv("a;b\n1;3")
+```
+
+```{r}
+read_csv("a,b\n12,3\n45,6") # Vírgula após a quebra de linha (CONSERTADO)
+```
+
+```{r}
+read_csv("a,b,c\n1,2\n1,2,'3,4'",quote = "\'") # Tamanho das linhas diferente um menor e um maior (ADAPTADO)
+```
+```{r}
+read_csv("a,b\n1,2") # Linha vazia e barra sem sentido ou quebra de linha mal colocada (ADAPTADO)
+```
+
+```{r}
+read_csv("a,b\n1,2\na,b") # As colunas e linhas foram passadas de maneira errada pois estamos misturando string com números, mas não dá pra saber ao certo.
+```
+
+```{r}
+read_csv2("a;b\n1;3") # Os valores estão separados por ; podemos usar read_csv2 ou delim e fornecer.
+```

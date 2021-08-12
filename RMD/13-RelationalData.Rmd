@@ -1,0 +1,532 @@
+---
+title: "13- Relational Data"
+author: "Augusto de Souza Cavalcanti"
+date: "29/04/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(tidyverse)
+require(nycflights13)
+```
+
+## Introduction
+
+É bem comum que uma análise de dados tenha varias tabelas e você tenha que combina-las para responder o que deseja. Coletivamente, muitas tabelas de dados são chamados de dados relacionais pois não só as tabelas em si mas suas relações são importantes.
+
+Relações são sempre definidas em pares de tabelas, relações de três ou mais tabelas são sempres definidas par a par. 
+
+Para trabalhar com esses tipos de dados temos que usar verbos específicos, esses são:
+
+- Mutating Joins: Que adiciona observações em um df por meio de cbservações combinadas de outro.
+
+- Filtering Joins: Filtram observações de um df com base no fato dele combinar ou não com observações de outro.
+
+- Set Operations: Que trata observações como se fossem elementos definidos.
+
+O local mais comum de encontrar esses tipos de dados são SGBDRs. O mais comum é o SQL, as funções do dplyr para tratar se assemelham ao SQL mas são um pouco diferentes e mais simples.
+
+## 12.3 nycflights13
+
+Usaremos o pacote nycflights13 para aprender sobre dados relacionais. Esse pacote contém 4 tibbles que são relacionadas a flights que já usamos.
+
+Airlines:
+```{r}
+airlines
+```
+Permite ver o nome inteiro das companhias baseado em seu código.
+
+Airports:
+```{r}
+airports
+```
+Fornece informações sobre os aeroportos indentificados pelo seu código faa.
+
+Planes:
+```{r}
+planes
+```
+Contém informações sobre cada avião, indentificados pelo seu código de cauda.
+
+Weather:
+```{r}
+weather
+```
+Fornece informações sobre o clima em cada aeroporto de Nova York para cada hora do ano.
+
+Uma maneira de visualizar as relações é por meio de um diagrama:
+
+
+`![o](relational-nycflights.png)`
+
+Está no pdf, decidi omitir o diagrama do Rmd
+
+### Exercícios 13.2.1
+
+a) Quais tabelas e variáveis seriam necessárias para desenhar a rota de cada avião?
+
+Precisariamos de latitude e longitude de airport. Precisariamos das rotas, isso é origin e dest de flights. 
+
+```{r}
+(flights_log_lat <- flights %>% inner_join(select(airports,origin=faa,origin_lat=lat,origin_long=lon),by='origin') %>% inner_join(select(airports,dest=faa,dest_lat=lat,dest_lon=lon),by='dest') %>% select(origin_lat:dest_lon))
+```
+Não precisamos de mais informações que essa para o mapa.
+
+Vamos fazer o gráfico de apenas 250 voos aleatórios para não ficar poluído demais.
+```{r}
+flights_log_lat %>% slice_sample(n=250) %>% ggplot(aes(x=origin_long,xend=dest_lon,
+                                                       y=origin_lat,yend=dest_lat)) +
+   borders("state") + geom_segment(arrow=arrow(length = unit(0.1,'cm'))) + coord_quickmap()
+```
+
+b) A relação de weather e airports não foi marcada no diagrama como ela deve ser feita?
+
+Airports faa é uma chave estrangeira para origin em weather.
+
+c)  Weather só contém informações para os aeroportos de NY, se registrasse informações para todos aeroportos, quais outras relações deveriam existir?
+
+Caso weather registrasse para todos, deveria existir uma relação entre weather e dest.
+
+d) Algumas datas do ano são especiais e menos pessoas boam nesse dias, como você poderia representar esses dados como dataframe. Quais seriam suas chaves primárias? Como se conectaria com outras?
+
+Poderíamos criar um dataframe com as seguintes colunas:
+
+- Dia = Chave Primária e conecta com Dia de outros df
+
+- Mês = Chave Primária e conecta com Mês de outros df
+
+- Motivo
+
+## 13.3 Keys
+
+As variáveis usadas para conectar cada tabela são chamadas de chaves. Uma chave é uma variável ou conjunto de variáveis que indentifica unicamente uma observação. Por exemplo, cada avião é unicamente indentificado pelo seu número de cauda. Para indentificar uma observação em weather por exemplo temos como chave : year, month, day, hour e origin.
+
+Existem 2 tipos de chave?
+
+- Uma chave primária indentifica unicamente uma observação na sua tabela. Por exemplo tailnum é uma chave primária de planes pois indentifica um avião unicamente.
+
+- Uma chave estrangeira indentifica unicamente uma observação em outra tabela. flights$tailnum é uma chave estrangeira pois aparece em flights onde combinam com cada avião único.
+
+Uma variável pode ser chave primária e chave estrangeira ao mesmo tempo.
+
+Quando você indentificou uma chave primária podemos testar por meio de uma contagem.
+
+```{r}
+planes %>% count(tailnum) %>%  filter(n>1)
+
+weather %>% count(origin,year,month,day,hour) %>%  filter(n>1)
+```
+O que filtramos de weather é uma chave primária mas parece que houve um erro ao armazenar os dados do dia 3 de novembro as 1 hora. Com um banco de dados com chaves bem definidas isso seria evitado.
+
+```{r}
+airports %>% count(faa) %>% filter(n>1)
+```
+
+Nem todos bancos de dados tem uma chave primária bem definida, por exemplo flights não tem uma chave primária bem definida. Caso isso aconteça podemos criar uma surrogate key que pode ser criada por meio de mutate() e row_number() e ser usada de primary key. 
+
+### Exercícios 13.3.1
+
+a) Adicione uma surrogate key para voos.
+
+```{r}
+flights %>% mutate(voo_id = row_number()) %>% select(voo_id,everything())
+```
+
+b) Indentifique as chaves nos seguinte dataframes:
+
+Lahman::Batting,
+babynames::babynames
+nasaweather::atmos
+fueleconomy::vehicles
+ggplot2::diamonds
+
+```{r}
+Lahman::Batting %>% count(playerID,yearID,stint) %>% filter(n>1)
+```
+PlayerId, YearId e stint são as chaves primárias.
+
+```{r}
+babynames::babynames %>% head
+```
+As chaves primárias year,sex e name.
+
+```{r}
+nasaweather::atmos %>% count(lat,long,year,month) %>% filter(n>1)
+```
+As chaves primárias são lat, long, year e month.
+
+```{r}
+fueleconomy::vehicles %>% count(id) %>% filter(n>1)
+```
+
+A chave primária é id.
+
+```{r}
+diamonds %>% nrow() - diamonds %>% distinct() %>% nrow() 
+```
+
+Podemos ver que temos 146 observações que tem um par idêntico, dessa forma não temos uma chave primária para esse dataset. Temos que criar uma surrogate key.
+
+```{r}
+diamonds %>% mutate(id_diamante = row_number()) %>% select(id_diamante,everything())
+```
+
+## 13.4 Mutating Joins
+
+A primeira ferramenta que olharemos será mutating join. Essa função permite combinar variáveis de duas tabelas. Primeiro combina as observações pelas chaves, então copia pelas variáveis de uma tabela para a outra. 
+
+Assim como mutate(), a função join adiciona variáveis a direita.
+
+```{r}
+(flights2 <- flights %>% 
+  select(year:day, hour, origin, dest, tailnum, carrier))
+```
+
+```{r}
+flights2 %>%
+  select(-origin, -dest) %>% 
+  left_join(airlines, by = "carrier")
+```
+
+### 13.4.1 Understanding Joins
+
+Vamos aprender um pouco sobre joins, é parecido com SQL.
+
+```{r}
+x <- tribble(
+  ~key, ~val_x,
+     1, "x1",
+     2, "x2",
+     3, "x3"
+)
+y <- tribble(
+  ~key, ~val_y,
+     1, "y1",
+     2, "y2",
+     4, "y3"
+)
+```
+
+Joins vão ser junções baseados na chave.
+
+### 13.4.2 Inner Join
+
+A mais simples delas, o inner join junta tabelas quando suas chaves são iguais. O argumento by informa qual a chave.
+
+```{r}
+inner_join(x,y,by='key')
+```
+
+Linhas que não são combinadas são descartadas.
+
+### 13.4.3 Outer Joins
+
+Enquanto inner joins mantém observações que estão nas duas tabelas. Outer Joins mantém as que estão em pelo menos uma.
+
+- left_join() mantém as observações de x
+- right_join() mantém as observações de y
+- full_join() mantém as observações de x e y
+
+Os locais que não são completos, a chave não encontra par são tratados como NA
+```{r}
+left_join(x,y,by='key')
+
+right_join(x,y,by='key')
+
+full_join(x,y,by='key')
+```
+
+O join mais usado é o join a direita pois preserva os dado antigos e informa os novos caso existam.
+
+### 13.4.3 Duplicate Keys
+
+E se as chaves não forem únicas? Existem duas possibilidades.
+
+1 - Quando uma tabela tem chaves repetidas: Comum quando temos relações um para muitos e queremos informações extra.
+
+```{r}
+x <- tribble(
+  ~key, ~val_x,
+     1, "x1",
+     2, "x2",
+     2, "x3",
+     1, "x4"
+)
+y <- tribble(
+  ~key, ~val_y,
+     1, "y1",
+     2, "y2"
+)
+left_join(x, y, by = "key")
+```
+
+2 - Ambas tabelas tem chaves repetidas. Quando fazemos isso obtemos um produto cartesiano. Todas combinações dos locais onde aquelas chaves estão presentes.
+
+```{r}
+x <- tribble(
+  ~key, ~val_x,
+     1, "x1",
+     2, "x2",
+     2, "x3",
+     3, "x4"
+)
+y <- tribble(
+  ~key, ~val_y,
+     1, "y1",
+     2, "y2",
+     2, "y3",
+     3, "y4"
+)
+left_join(x, y, by = "key")
+
+```
+
+### 13.4.5 Defining the Key Columns
+
+Até agora as tabelas foram combinadas por uma só coluna de cada e elas tinham o mesmo nome. Mas em situações reais esse não é o caso normalmente. Então usamos o argumento by para conectar de outra maneira. 
+
+- O default: by= NULL usa todas as variáveis que tem o mesmo nome nas duas tabelas. Natural Join.
+```{r}
+flights2 %>% 
+  left_join(weather)
+```
+
+- Um vetor de caracteres: Funciona como o natural join porém nos selecionamos a coluna. flights e planes contém a variável ano porém elas tem significado diferente. Queremos juntar apenas por tailnum.
+
+```{r}
+flights2 %>% left_join(planes,by='tailnum')
+```
+As variáveis com mesmo nome são diferenciadas por um sufixo
+
+- Um vetor de caracteres nomeado. Vai fazer a combinação e manter os da tabela x no output.
+
+```{r}
+flights2 %>% 
+  left_join(airports, c("dest" = "faa"))
+
+
+flights2 %>% 
+  left_join(airports, c("origin" = "faa"))
+
+
+```
+
+### Exercícios 13.4.6
+
+a) Calcule o delay médio por destino depois junte com aeroportos para mostrar a distribuição espacial dos atrasos.
+
+```{r}
+flights %>% group_by(dest) %>% summarise(atrm = mean(arr_delay,na.rm = T)) %>% left_join(airports,by=c('dest'='faa')) %>% filter(!is.na(lat)) %>% ggplot(aes(lon,lat)) + borders('state') +geom_point(aes(color=atrm)) + coord_quickmap()
+```
+
+b) Adicione as coordenadas do destino e origem ao flights.
+
+```{r}
+flights %>% select(month:dest) %>% left_join(select(airports,faa,lat,lon),by=c('origin'='faa')) %>% left_join(select(airports,faa,lat,lon),by=c('dest'='faa'),suffix=c('_origin','_dest')) 
+```
+
+c) Existe uma relação entre a idade do avião e seus atrasos?
+
+```{r}
+flights %>% left_join(planes,by='tailnum',suffix=c('_fl','_plane')) %>% mutate(plane_age = year_fl-year_plane) %>% filter(plane_age < 25) %>% group_by(plane_age) %>% summarise(dep_d_m = mean(dep_delay,na.rm = T),arr_d_m = mean(arr_delay,na.rm=T)) %>% ggplot(aes(plane_age,dep_d_m)) + geom_point()
+```
+Parece existir uma relação crescente tanto até os 10 anos e depois uma estabilização.
+
+d) Qual condição aérea torna mais provável os atrasos.
+
+```{r}
+flights %>% select(year,month,day,hour,origin,dep_delay) %>% filter(dep_delay>0) %>% left_join(weather) %>%
+  group_by(precip) %>%
+  summarise(delay = mean(dep_delay, na.rm = TRUE)) %>%
+  ggplot(aes(x = precip, y = delay)) +
+  geom_line() + geom_point()
+```
+
+Parece existir uma forte correlação entre delay e visibilidade.
+
+## 13.5 Filtering Joins
+
+Joins de filtro combinam observações da mesma maneira que mutating joins, mas afeta as observações, não as variáveis. Existem dois tipos:
+
+- semi_join() : mantém todas observações de x que tem uma combinação em y.
+
+- anti_join() : descarta todas observações de x que tem uma combinação em y.
+
+semi joins são úteis para recombinar sumarios com seus dados originais. Ex: Imagine que queremos descobrimos os dez destinos mais populares:
+
+```{r}
+(populares <- flights %>% count(dest,sort=T) %>% head(10))
+```
+
+Agora imagine que você queira descobrir todos os voos que foram para esses locais, você poderia construir um filtro manualmetne:
+
+```{r}
+flights %>% filter(dest %in% populares$dest)
+```
+Porém isso se torna mais complexo quando a contagem foi com mais variáveis por exemplo. Podemos usar um semojoin para isso.
+
+```{r}
+flights %>% semi_join(populares)
+```
+
+O inverso de um semi_join é um anti_join. Esse confere os dados e retorna as observações de x que não tiveram combinação em y.
+
+Por exemplo, existem muitos aviões em flights que não estão registrados em planes.
+
+```{r}
+flights %>% anti_join(planes,by='tailnum') %>% count(tailnum,sort=T)
+```
+
+### Exercícios 13.5.1
+
+a) O que significa um voo ter NA de tailnum? O que os aviões que não tem uma combinação em planes tem em comum?
+
+Um voo que tem tailnum = NA é um voo que foi cancelado.
+
+```{r}
+flights %>% anti_join(planes,by='tailnum') %>% filter(is.na(tailnum))
+```
+
+O que os aviões que não tem uma combinação em planes tem em comum?
+
+```{r}
+flights %>% anti_join(planes,by='tailnum') %>% count(carrier,sort=T)
+```
+90% dos aviões que não estão registrados em planes e voarão são das companhias MQ e AA. Não tenho certeza do motivo.
+
+b) Filtre os voos para somente mostrar os que voaram com aviões que fizeram ao menos 100 voos.
+
+Existem duas maneiras de fazer isso:
+
+Semijoin:
+```{r}
+mais100 <- flights %>% count(tailnum) %>% filter(n>100)
+
+flights %>% semi_join(mais100,by='tailnum')
+```
+
+Mutate e groupby:
+
+```{r}
+flights %>% group_by(tailnum) %>% mutate(voosav = n()) %>% filter(voosav >100)
+```
+
+c) Combine fueleconomy::vehicles e fueleconomy::common para encontrar somente informações sobre os modelos mais comuns.
+
+```{r}
+fueleconomy::vehicles %>% semi_join(fueleconomy::common)
+```
+
+d) Encontre as 48 horas com mais atrasos do ano, cruze com weather. Consegue ver padrões?
+
+```{r}
+(maioresatr <- flights %>% group_by(time_hour) %>% summarise(atraso = mean(dep_delay,na.rm = T)) %>% arrange(desc(atraso)) %>% head(48))
+
+clima <- weather %>% semi_join(maioresatr)
+```
+
+Podemos ver que essas horas costumam estar juntas, atrasos grandes acarretam mais grandes atrasos. Vamos comparar alguns fatores climáticos desses horários com a média.
+
+```{r}
+clima %>% select(wind_speed,precip,visib) %>% summary
+```
+```{r}
+weather %>% select(wind_speed,precip,visib) %>% summary
+```
+Podemos ver que a média de visibilade, precipitação e wind_speed é significativamente diferente do resto da amostra
+
+```{r}
+climared <- anti_join(weather,clima)
+
+t.test(clima$visib,climared$visib)
+
+t.test(clima$wind_speed,climared$wind_speed)
+
+t.test(clima$precip,climared$precip)
+```
+
+
+e) What does anti_join(flights, airports, by = c("dest" = "faa")) tell you? 
+What does anti_join(airports, flights, by = c("faa" = "dest")) tell you?
+
+```{r}
+anti_join(flights, airports, by = c("dest" = "faa"))
+```
+Essa operação nos mostra os voos que foram para destinos não registrados na table aeroportos.
+
+```{r}
+anti_join(airports, flights, by = c("faa" = "dest"))
+```
+Essa operação nos mostra os locais registrados que não foram destinos de voos.
+
+f) You might expect that there’s an implicit relationship between plane and airline, because each plane is flown by a single airline. Confirm or reject this hypothesis using the tools you’ve learned above.
+
+Vamos encontrar todas combinações de aviões e companhias.
+```{r}
+flights %>% filter(!is.na(tailnum)) %>% distinct(tailnum,carrier)
+```
+
+Agora vamos ver os aviões que voaram por 2 companhias.
+
+```{r}
+(avioesduplos <- flights %>% filter(!is.na(tailnum)) %>% distinct(tailnum,carrier) %>% count(tailnum) %>% filter(n>1))
+```
+
+Podemos ver que 17 aviões voaram por duas companhias aéreas
+
+```{r}
+flights %>% semi_join(avioesduplos) %>% select(carrier) %>% left_join(airlines) %>% count(name)
+```
+Podemos ver que apenas essas 4 companhias contiveram aviões que voaram por mais de uma. É possível que uma tenha vendido aviões para a outra em pares ou uma delas vendeu para as outras.
+
+## 13.6 Join Problems
+
+Devemos fazer algumas coisas antes de começar a combinar caso nossos dados não estrjam da maneira ideal devemos tratalos.
+
+Start by identifying the variables that form the primary key in each table. You should usually do this based on your understanding of the data, not empirically by looking for a combination of variables that give a unique identifier. If you just look for variables without thinking about what they mean, you might get (un)lucky and find a combination that’s unique in your current data but the relationship might not be true in general.
+
+For example, the altitude and longitude uniquely identify each airport, but they are not good identifiers!
+
+airports %>% count(alt, lon) %>% filter(n > 1)
+#> # A tibble: 0 x 3
+#> # … with 3 variables: alt <dbl>, lon <dbl>, n <int>
+Check that none of the variables in the primary key are missing. If a value is missing then it can’t identify an observation!
+
+Check that your foreign keys match primary keys in another table. The best way to do this is with an anti_join(). It’s common for keys not to match because of data entry errors. Fixing these is often a lot of work.
+
+## 13.7 Set Operations
+
+Essas operações são feitas quando estamos comparando duas tabelas que contém variáveis iguais e podem conter observações iguais.
+
+- intersect(x,y) = Retorna observações presentes em x e y
+
+- union(x,y) = Retorna observações presentes em x ou y, repetidas são tratadas como uma.
+
+- setdiff(x,y) = retorna observações em x mas que não estão em y.
+
+
+```{r}
+df1 <- tribble(
+  ~x, ~y,
+   1,  1,
+   2,  1
+)
+df2 <- tribble(
+  ~x, ~y,
+   1,  1,
+   1,  2
+)
+```
+
+
+```{r}
+intersect(df1,df2)
+
+union(df1,df2)
+
+setdiff(df1,df2)
+
+setdiff(df2,df1)
+```
+

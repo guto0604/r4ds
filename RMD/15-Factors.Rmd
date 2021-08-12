@@ -1,0 +1,376 @@
+---
+title: "15- Factors"
+author: "Augusto de Souza Cavalcanti"
+date: "03/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(tidyverse)
+```
+
+# 15 Factors
+## 15.1 Introduction
+
+Fatores são usados para trabalhar com variáeis categóricas. Podem ser usados para apresentar vetores de caracteres sem ser em ordem alfabética. 
+
+Como fatores eram muito mais fáceis de serem usados que caracteres, muitas funções do r já fazem uma transformação autómatica. Muitas vezes isso causa que fatores apareçam onde não são necessários, no tidyverse não temos que nos preocupar com isso, mas funções da base podem fazer isso.
+
+## 15.2 Creating Factors
+
+Imagina que temos uma variável para os meses do ano.
+
+```{r}
+meses <- c("Dec","Ago","Fev","Sep")
+```
+
+Usar strings para representar os meses tem dois problemas:
+
+- Existem apenas 12 meses e cometer um erro tipográfico pode acontecer.
+
+```{r}
+x2 <- c("Jan","Fev","Mar","Abt")
+```
+
+- Não é ordenado em uma ordem útil.
+
+```{r}
+sort(meses)
+```
+
+Esses dois problemas podem ser resolvidos por meio de fatores. Para criar um fator primeiro criamos uma lista ou vetor de níveis válidos.
+
+```{r}
+month_levels <- c(
+  "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", 
+  "Jul", "Ago", "Set", "Out", "Nov", "Dez"
+)
+```
+
+```{r}
+y1 <- factor(month_levels,levels = month_levels)
+```
+
+```{r}
+sort(y1)
+```
+
+Qualquer valor que for inserido que não pertencer ao fator será transformado em NA.
+
+```{r}
+x <- factor(c(x2),levels = month_levels)
+x
+```
+
+As vezes desejamos que os níveis do fator sejam definidos pela ordem da primeira aparição no vetor, para isso use unique() ou fct_inorder() após a criação.
+
+```{r}
+f1 <- factor(meses, levels = unique(meses))
+f1
+
+
+
+f2 <- meses %>% factor() %>% fct_inorder()
+f2
+
+```
+
+Para acessar os níveis basta usar levels()
+
+```{r}
+levels(y1)
+```
+
+
+## 15.3 General Social Survey
+
+Pelo resto do cápitulo vamos focar no forcats:gss_cat. É uma amostra de dados do General Social Survey. Uma enquete conduzida nos EUA para que a população informe diversas coisas sobre a sociedade e si mesmos. Parecido com o censo mas não é a mesma coisa.
+
+```{r}
+gss_cat
+```
+
+Quando os dados estão em um tibble, é muito fácil ver os fatores, por meio de count ou um gráfico de barras.
+
+```{r}
+gss_cat %>% count(race)
+gss_cat %>% ggplot(aes(race)) + geom_bar()
+```
+
+Por default o ggplot vai discartar níveis que não tiveram observações, podemos fazer com que eles apareçam com scale_x_discrete(drop=F)
+
+```{r}
+gss_cat %>% ggplot(aes(race)) + geom_bar() + scale_x_discrete(drop=F)
+```
+
+As operações mais comuns com fatores são, alterar os níveis dos fatores e mudar os valores dos fatores. Ambas explicadas abaixo.
+
+### Exercícios 15.3.1
+
+a) Explore the distribution of rincome (reported income). What makes the default bar chart hard to understand? How could you improve the plot?
+
+```{r}
+gss_cat %>% ggplot(aes(rincome)) + geom_bar()
+```
+Temos dificuldades de ler devido ao tamanho do nome dos fatores, podemos virar o gráfico.
+
+```{r}
+gss_cat %>% ggplot(aes(rincome)) + geom_bar() + coord_flip()
+```
+Existem outras maneiras de alterar o gráfico positivamente, tanto para melhor leitura quanto codificação boa. Vou alterar apenas o angulo da escrita para um exemplo.
+
+```{r}
+gss_cat %>% ggplot(aes(rincome)) + geom_bar() + theme(axis.text.x= element_text(angle=45,hjust=1))
+```
+
+
+b) What is the most common relig in this survey? What’s the most common partyid?
+
+```{r}
+gss_cat %>% count(relig,sort=T) %>% head(1)
+```
+```{r}
+gss_cat %>% count(partyid,sort=T) %>% head(1)
+```
+c) Which relig does denom (denomination) apply to? How can you find out with a table? How can you find out with a visualisation?
+
+Table:
+```{r}
+gss_cat %>% group_by(relig,denom) %>% summarise(n())
+```
+Percebemos que protestant foi a única religião que deu respostas diferentes de não aplicavél ou não sei. Então se trata de protestantes.
+
+```{r}
+gss_cat %>% count(relig,denom) %>% ggplot(aes(relig,denom,size=n)) + geom_point() + theme(axis.text.x = element_text(angle=45,hjust = 1))
+```
+
+Por meio do gráfico percebemos que claramente se trata de protestantes.
+
+
+
+
+
+## 15.4 Modifying Factor Order
+
+Podemos precisar mudar a ordem dos fators para um visualização. Imagine que você deseja explorar o tempo médio pasado por dia assistindo televisão, baseado nas religiões
+
+```{r}
+summartvreg <- gss_cat %>% group_by(relig) %>% summarise(medtv = mean(tvhours,na.rm=T)) 
+
+summartvreg %>% ggplot(aes(x=medtv,y=relig)) + geom_bar(stat="identity")
+```
+
+Esse gráfico é difícil de se interpretar pois não temos um padrão. Podemos mudar isso usando fct_reorder() que recebe três argumentos.
+
+- f = O fator que os níveis podem ser alterados
+
+- x = Um vetor númerico que deseja usar para reordenar
+
+- fun = (OPCIONAL) Função que pode ser usada se existem várias observações para um fator.
+
+```{r}
+summartvreg %>% ggplot(aes(medtv,fct_reorder(relig,medtv))) + geom_bar(stat="identity")
+```
+Essa reordenação permite que visualizemos os maiores e menores com mais facilidade. A partir do momento que fazemos transformações mais complexas, é recomendado mudar isso para o mutate antes e não o aes. Feito a seguir.
+
+```{r}
+summartvreg  %>%
+  mutate(relig = fct_reorder(relig, medtv)) %>%
+  ggplot(aes(medtv, relig)) +
+    geom_point()
+```
+
+Poderiamos também criar um gráfico da idade média das pessoas para cada nível de income.
+
+```{r}
+rincome_summary <- gss_cat %>%
+  group_by(rincome) %>%
+  summarise(
+    age = mean(age, na.rm = TRUE),
+    tvhours = mean(tvhours, na.rm = TRUE),
+    n = n()
+  )
+
+ggplot(rincome_summary, aes(age, fct_reorder(rincome, age))) + geom_point()
+```
+
+Nesse caso, mudar a ordem dos fatores não é uma boa ideia. O fato do income já ter uma ordem própria faz com que essa mudança não tenha sentido e cause mais trabalho ao analisar o gráfico. Porém faz sentido colocar not applicable junto com os outros níveis especiais. Podemos usar fct_relevel() para isso.
+
+```{r}
+gss_cat %>% group_by(rincome) %>% summarise(idadem = mean(age,na.rm = T)) %>% mutate(rincome = fct_relevel(rincome,"Not applicable")) %>% ggplot(aes(x=idadem,rincome)) + geom_point()
+```
+
+A idade média para não aplicável é alta provavelmente devido a aposentados.
+
+
+Outro tipo de reordenação que pode ser útil quando colorindo linhas de um gráfico é fct_reorder2() pois reordena os fatores pelos valores de y associados com os maiores valores de x. Isso faz com que a cor das linhas se encaixe com a legenda.
+
+```{r}
+by_age <- gss_cat %>%
+  filter(!is.na(age)) %>%
+  count(age, marital) %>%
+  group_by(age) %>%
+  mutate(prop = n / sum(n))
+
+ggplot(by_age, aes(age, prop, colour = marital)) +
+  geom_line(na.rm = TRUE)
+
+ggplot(by_age, aes(age, prop, colour = fct_reorder2(marital, age, prop))) +
+  geom_line() +
+  labs(colour = "marital")
+```
+
+Finalmente, para gráficos de barra. Podemos usar fct_infreq() para ordenar os níveis em relação à frequência. Não é necessário nenhum argumento extra, pode ser combinado com freq_rev() para a visualização.
+
+```{r}
+gss_cat %>% mutate(marital = marital %>% fct_infreq() %>% fct_rev()) %>%  ggplot(aes(marital)) + geom_bar() + labs(title = "Ordenado por frequência e invertido")
+
+gss_cat %>% mutate(marital = marital %>% fct_infreq()) %>%  ggplot(aes(marital)) + geom_bar() + labs(title = "Ordenado por frequência")
+
+gss_cat %>% ggplot(aes(marital)) + geom_bar() + labs(title = "Sem ordenação")
+
+```
+
+### Exercícios 15.4.1
+
+a) There are some suspiciously high numbers in tvhours. Is the mean a good summary?
+
+```{r}
+gss_cat$tvhours %>% summary
+```
+
+```{r}
+gss_cat %>% ggplot(aes(tvhours)) + geom_histogram(binwidth = 1,center=0.5)
+```
+
+A média se difere da bastante da mediana, pelo fato de algumas pessoas assistirem por muitas horas ou responderem de maneira errada, podemos dizer que pode não ser o ideal. Mas podemos pedir uma média truncada para remover os outliers e percebemos que a média caí.
+
+```{r}
+gss_cat$tvhours %>% mean(trim=0.05,na.rm=T)
+```
+
+b) For each factor in gss_cat identify whether the order of the levels is arbitrary or principled.
+
+- Marital = Ordem arbitrária (Nominal) # Podemos discutir se faz sentido ordenar por existir uma relação com a fase da vida que estamos
+
+- Race = Ordem arbitrária (Nominal)
+
+- rincome = Ordem Importa (Ordinária)  
+
+- Partyid = Ordem arbitrária (Nominal)
+
+- relig = Ordem arbitrária (Nominal)
+
+- denom = Ordem arbitrária (Nominal)
+
+c) Why did moving “Not applicable” to the front of the levels move it to the bottom of the plot?
+
+Pois assim ele recebe o valor de nível 1.
+
+## 15.5 Modifying Factor Levels 
+
+Mais poderoso do que mudar a ordemo dos fatores é mudar seus valores. Podemos fazer isso com fct_recode().
+
+Olhando para partyid por exemplo, vemos que os níveis são confusos.
+
+```{r}
+gss_cat %>% count(partyid)
+```
+
+Podemos alterar eles para serem mais consistentes.
+```{r}
+gss_cat %>%
+  mutate(partyid = fct_recode(partyid,
+    "Republican, strong"    = "Strong republican",
+    "Republican, weak"      = "Not str republican",
+    "Independent, near rep" = "Ind,near rep",
+    "Independent, near dem" = "Ind,near dem",
+    "Democrat, weak"        = "Not str democrat",
+    "Democrat, strong"      = "Strong democrat"
+  )) %>%
+  count(partyid)
+```
+
+Níveis não informados serão mantidos e podemos agrupar dois níveis diferentes em uníco dando o mesmo nome.
+
+```{r}
+gss_cat %>%
+  mutate(partyid = fct_recode(partyid,
+    "Republican, strong"    = "Strong republican",
+    "Republican, weak"      = "Not str republican",
+    "Independent, near rep" = "Ind,near rep",
+    "Independent, near dem" = "Ind,near dem",
+    "Democrat, weak"        = "Not str democrat",
+    "Democrat, strong"      = "Strong democrat",
+    "Other"                 = "No answer",
+    "Other"                 = "Don't know",
+    "Other"                 = "Other party"
+  )) %>%
+  count(partyid)
+```
+
+Se desejar colapsar vários níveis, fct_collapse é uma variante útil de fct_recode()
+
+```{r}
+gss_cat %>%
+  mutate(partyid = fct_collapse(partyid,
+    other = c("No answer", "Don't know", "Other party"),
+    rep = c("Strong republican", "Not str republican"),
+    ind = c("Ind,near rep", "Independent", "Ind,near dem"),
+    dem = c("Not str democrat", "Strong democrat")
+  )) %>%
+  count(partyid)
+```
+
+Se quisermos juntar todos grupos pequenos para um grupo de outros por exemplo, podemos fazer isso com fct_lump(). Essa função faz com que os grupos menores sejam somados progressivemente enquanto esse ainda for o menor grupo.
+
+```{r}
+gss_cat %>%
+  mutate(relig = fct_lump(relig)) %>%
+  count(relig)
+```
+Nesse caso não é muito útil.
+
+Podemos também informar o parâmetro n para dizer quantos grupos desejamos.
+
+```{r}
+gss_cat %>%
+  mutate(relig = fct_lump(relig, n = 10)) %>%
+  count(relig, sort = TRUE)
+```
+
+### Exercícios 15.5.1
+
+a) How have the proportions of people identifying as Democrat, Republican, and Independent changed over time?
+
+```{r}
+gss_cat %>%
+  mutate(partyid = fct_collapse(partyid,
+    other = c("No answer", "Don't know", "Other party"),
+    rep = c("Strong republican", "Not str republican"),
+    ind = c("Ind,near rep", "Independent", "Ind,near dem"),
+    dem = c("Not str democrat", "Strong democrat")
+  )) %>% group_by(year,partyid) %>% summarise(totalp = n()) %>% 
+  ungroup() %>% group_by(year) %>% mutate(prop = totalp/sum(totalp)) %>% 
+  ggplot(aes(x=year,y=prop,color=partyid)) + geom_line() + geom_point()
+```
+
+O número de republicanos desceu um pouco ao longo do período, e o de independentes subiu um pouco (~3%) .Outros tiveram pequenas flutuações mas no geral foram mais estáveis.
+
+b) How could you collapse rincome into a small set of categories?
+
+```{r}
+gss_cat %>% mutate(rincome = fct_collapse(rincome,
+  outro = c("No answer","Don't know","Refused"),
+  less6k = c("$5000 to 5999","$4000 to 4999","$3000 to 3999","$1000 to 2999","Lt $1000"),
+  bettwen6_10k = c("$8000 to 9999",	"$7000 to 7999",	"$6000 to 6999"),
+  bettwen10_20k = c("$15000 - 19999","$10000 - 14999"),
+  morethan25k = c("$25000 or more",	"$20000 - 24999"),
+)) %>% mutate(rincome = fct_relevel(rincome,"outro",after=4)) %>% count(rincome)
+```
+
+
+
+
+

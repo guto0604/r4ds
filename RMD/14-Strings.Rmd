@@ -1,0 +1,1148 @@
+---
+title: "14- Strings"
+author: "Augusto de Souza Cavalcanti"
+date: "30/04/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(tidyverse)
+```
+
+## 14.1 Introduction
+
+Esse cápitulo será sobre a manipulação de strings com o pacote stringr. Vamos aprender sobre manipulação de strings porém o foco principal desse cápitulo será em expressões regulares, ou REGEXP
+
+## 14.2 Strings Basics
+
+Podemos criar strings com " ou '.
+
+O print de uma string não é o mesmo que a string em si. Pois em prints contrabarras aparecem por exemplo. Para ver o conteudo em si use writeLines()
+
+```{r}
+x <- c("\"","\\")
+
+x
+
+writeLines(x)
+```
+
+Existem outros comandos úteis, os mais comuns são `\n` nova linha e `\t` tab. Existem também alguns comandos para escrever caracteres sem ser em português.
+
+```{r}
+x <- "\u00b5"
+x
+```
+
+### 14.2.1 String Length
+
+Usaremos as funções do stringr para fazer quase tudo apresentado.
+
+```{r}
+x<- c('Guto','Augusto','SC',NA)
+
+str_length(x)
+```
+
+### 14.2.2 Combining Strings
+
+Use str_c()
+
+```{r}
+str_c("Augsuto","Cavalcanti",sep=' ')
+```
+Assim como em outras funções NA retornam NA. Se quiser imprimir esses use str_replace_na
+
+```{r}
+x <- c("Guto",NA)
+
+str_c("|-",x,"-|")
+
+str_c("|-",str_replace_na(x),"-|")
+```
+
+Objetos de tamanho 0 são silenciosamente deixados.
+```{r}
+name <- "Augusto"
+time_of_day <- "morning"
+birthday <- FALSE
+
+str_c(
+  "Good ", time_of_day, " ", name,
+  if (birthday) " and HAPPY BIRTHDAY",
+  "."
+)
+
+name <- "Augusto"
+time_of_day <- "morning"
+birthday <- TRUE
+
+str_c(
+  "Good ", time_of_day, " ", name,
+  if (birthday) " and HAPPY BIRTHDAY",
+  "."
+)
+```
+
+Para juntar um vetor de strings em uma String insira o argumento collapse.
+
+```{r}
+str_c(c('oi','tudo','bem','?'),collapse = ' ')
+```
+### 14.2.3 Subsetting String
+
+Podemos extrair parte de um string usando str_sub(). 
+
+```{r}
+str_sub("Augusto",3,5)
+
+str_sub(c("Augsuto","Ivan"),3,5) # Se pedimos até uma posição maior que as existentes o substring vai até o final.
+
+str_sub('Augusto',10,11) # Vazio se as posições são inexistentes.
+
+str_sub('Augusto',-2,-1) # Números negativos contam do final.
+```
+Podemos usar uma atribuição para alterer stirngs com str_sub()
+
+```{r}
+x <- c("Augusto","Ivan")
+
+str_sub(x,1,1) <- str_to_lower(str_sub(x,1,1))
+
+x
+```
+### 14.2.4 Locales
+
+Existem diferenças de linguagem dependendo do local, o Brasil contém acentos por exemplo. Temos que informar o locale para caso queiramos fazer alguma operação que depende disso.
+
+Exemplo dado no livro sobre a Turquia possuir dois I's.
+
+```{r}
+# Turkish has two i's: with and without a dot, and it
+# has a different rule for capitalising them:
+str_to_upper(c("i", "ı"))
+#> [1] "I" "I"
+str_to_upper(c("i", "ı"), locale = "tr")
+#> [1] "İ" "I"
+```
+
+O argumento sort também recebe o argumento locale. O havaii por exemplo tem regras para ordenar diferentes então temos que fornecer o local.
+
+```{r}
+x <- c("apple", "eggplant", "banana")
+
+str_sort(x, locale = "en")  # English
+#> [1] "apple"    "banana"   "eggplant"
+
+str_sort(x, locale = "haw") # Hawaiian
+#> [1] "apple"    "eggplant" "banana"
+```
+
+### Exercícios 14.2.5
+
+a) Em códigos que não usam o stringr você vera as funções paste() e paste0(). Qual a diferença entre elas? Qual o equivalente no stringr. Como eles lidam com NA?
+
+```{r}
+(nth <- paste0(1:12, c("st", "nd", "rd", rep("th", 9))))
+
+(nth <- paste(1:12, c("st", "nd", "rd", rep("th", 9))))
+```
+Paste e paste0 concatenam um vetor em strings, paste faz uma separação com espaços automaticamente, enquanto paste0 não. O equivalente no stringr seria o str_c() ele é mais parecido com paste0 pois não deixa espaços.
+
+```{r}
+(nth <- str_c(1:12, c("st", "nd", "rd", rep("th", 9))))
+```
+Lidando com NA:
+
+```{r}
+str_c(c("Oi",NA,"Augusto"),c(',Tudo Bem?'))
+
+paste0(c("Oi",NA,"Augusto"),c(',Tudo Bem?'))
+
+paste(c("Oi",NA,"Augusto"),c(',Tudo Bem?'))
+```
+Enquanto as funções paste retornam a junção mas com os locais que seriam NA com NA. A str_c retorna apenas NA. Se quisessemos que o stringr fizesse a mesma coisa teriamos que fornecer o argumento str_replace_na para o vetor que contém NA.
+
+```{r}
+str_c(str_replace_na(c("Oi",NA,"Augusto")),c(',Tudo Bem?'))
+```
+
+b) Diferença de sep e collapse?
+
+```{r}
+str_c(c("Oi","tudo Bem?"),collapse = ', ')
+
+str_c('Oi','tudo bem?',sep=', ')
+```
+O argumento collapse serve para informar o separador quando queremos que um vetor de strings se torne uma única string. O argumento sep informa o separador quando estamos uninco strings de vetores diferentes passadas individualmente.
+
+c) Use str_length e str_sub para extrair a letra do meio da string.
+
+Se o string for de tamanho impar baste selecionar a letra do meio.
+```{r}
+x<- "Augusto"
+
+meio<- str_length(x)/2+0.5
+
+str_sub(x,meio,meio)
+```
+Se for para vamos extrair as duas do meio.
+```{r}
+x <- "Guto"
+
+meio <- str_length(x)/2
+
+str_sub(x,meio,meio+1)
+```
+Podemos fazer uma função para isso.
+
+```{r}
+meio_palavra <- function(palavra){
+  if(str_length(palavra)%%2!=0){
+    meio <- str_length(palavra)/2+0.5
+    centro <- str_sub(palavra,meio,meio)
+  }
+  else{
+    meio <- str_length(palavra)/2
+    centro <- str_sub(palavra,meio,meio+1)
+  }
+  return(centro)
+}
+```
+Testando
+```{r}
+meio_palavra("Guto")
+
+meio_palavra("Augusto")
+```
+
+
+d) O que str_wrap() faz? Quando você pode precisar?
+
+
+```{r}
+"Meu nome é Augusto de Souza Cavalnti. Tenho 20 Anos e gosto de Futebol" %>% str_wrap(width=15)
+```
+Essa função separa o etxto em linha para que caibam em um tamanho de linha desejado. Pode ser utíl quando vamos imprimir printar aquilo em algum lugar com espaço limitado.
+
+e) O que str_trim() faz? Qual o oposto de str_trim()?
+
+Essa função remove os espaços em branco do começo e final de uma string. A função squish faz o mesmo e também remove espaços duplos no meio da string.
+```{r}
+str_trim("   OI     TUDO     BEM    ")
+
+str_squish("   OI     TUDO     BEM    ")
+```
+O oposto de str_trim() é str_pad que adiciona caracteres para a string ter certo tamanho. Decidimos também o local
+```{r}
+str_pad("Olá",10,side='both')
+```
+
+f) Escreva uma função que transforma um vetor ("a","b","c") em uma string "a, b and c" pense na situação em que o vetor vai ter tamanho 0 ou 1 ou 2.
+
+```{r}
+vetor_p_str <- function(x){
+  n <- length(x)
+  if(n==0){r <- ''}
+  if(n==1){r <- x}
+  if(n==2){r <- str_c(x,collapse = ' and ')}
+  if(n>2){
+    r <- str_c(x[1:length(x)-1],collapse = ', ') %>% str_c(' and ',x[length(x)])
+  }
+  return(r)
+}
+```
+
+## 14.3 Matching Patterns with regular expressions
+
+Regexps são formas de linguagem que permitem que você encontre padrões em strings.
+
+Para aprender expressões regulares usaremos usaremos str_view() e str_view_all(). Essas funções pegam vetores de caracteres e expressões regulares e mostram como combinam. Começaremos simples e avançaremos:
+
+### 14.3.1 Basic Matches
+
+Os padrões mais simples combinam strings exatas:
+
+```{r}
+x <- c("apple","banana","pear")
+str_view(x,'an')
+```
+
+O próximo nível de complexidade é o ponto . (Combina com qualquer caractere menos uma linha nova)
+
+```{r}
+str_view(x,'.a.')
+```
+
+Como o . é usado para isso se quisermos representar um ponto temos que fazer \\. pois uma barra foge do condição especial do regexsp e a outra da string que também usa a contrabarra para representações especiais.
+
+```{r}
+# To create the regular expression, we need \\
+dot <- "\\."
+
+# But the expression itself only contains one:
+writeLines(dot)
+#> \.
+
+# And this tells R to look for an explicit .
+str_view(c("abc", "a.c", "bef"), "a\\.c")
+```
+
+Como barras tambem podem ser usadas para representar uma barra. Para fugir de todas condições especiais.
+```{r}
+x <- "a\\b"
+writeLines(x)
+#> a\b
+
+str_view(x, "\\\\")
+```
+
+
+### Exercícios 14.3.1.1
+
+a) Explain why each of these strings don’t match a \: "\", "\\", "\\\".
+
+O primeiro não funciona pois a contrabarra é usada para escapar o próximo caractere
+
+O segundo criara uma representação de `\` no regex porém na string a `\` também é usada para representar e não funcionara.
+
+O terceiro vai resultar nas duas segundas barras se tornando a expressão, a terceira em uma string e precisariamos de mais uma para representar a contrabarra na string.
+
+b) How would you match the sequence "'\ ?
+
+```{r}
+str_view("\"\'\\","\"'\\\\",match=T)
+```
+
+
+c) Qual padrão a expressão regular `\..\..\..` vai combinar? Como você representaria como string?
+
+```{r}
+str_view('.g.u.t','\\..\\..\\..')
+```
+
+
+### 14.3.2 Anchors
+
+Por padrão expressões regulares vão combinar com qualquer lugar da string. Pode ser útil ancorar a expressão regular para combinar com o início ou final da string.
+
+- ^  INÍCIO
+
+- $  FINAL
+
+```{r}
+str_view(x,'^a')
+
+str_view(x,'a$')
+```
+
+
+Para forçar que uma expressão regular combine somente com uma string completa use ^ e $.
+
+```{r}
+ex <- c("apple","apple pie","apple cake")
+
+str_view(ex,"^apple$")
+```
+
+### Exercícios 14.3.2.1
+
+a) How would you match the literal string `$^$`?
+
+```{r}
+str_view("$^$","\\$\\^\\$")
+```
+
+b) Given the corpus of common words in stringr::words, create regular expressions that find all words that:
+
+Start with “y”.
+End with “x”
+Are exactly three letters long. (Don’t cheat by using str_length()!)
+Have seven letters or more.
+
+```{r}
+str_view(words,"^y",match=T)
+```
+
+```{r}
+str_view(words,"x$",match=T)
+```
+
+```{r}
+str_view(words,"^...$",match=T)
+```
+
+```{r}
+str_view(words,"^.......",match=T)
+```
+
+### 14.3.3 Character Classes Alternatives
+
+Existem diversos padrões especiais que combinam com caracteres especiais, já vimos o ponto, alguns outros exemplos são:
+
+- `\d` : Combina com qualquer dígito.
+
+- `\s` : Combina com espaços em brancos
+
+- `[abc]` : Combina com a , b ou c.
+
+- `[^abc]` : Combina com qualquer coisa menos a , b ou c
+
+Alguns caracteres especiais podem ser representados dentro do [] ao invés de com contrabarras, mas não funciona para todos. Mesmo assim pode ser mais légivel e considerado as vezes. EX:
+
+```{r}
+# Look for a literal character that normally has special meaning in a regex
+str_view(c("abc", "a.c", "a*c", "a c"), "a[.]c")
+```
+
+
+```{r}
+str_view(c("abc", "a.c", "a*c", "a c"), ".[*]c")
+```
+
+
+```{r}
+str_view(c("abc", "a.c", "a*c", "a c"), "a[ ]")
+```
+
+Podemos usar | para representar um ou. Por exemplo abc|d..f pode combinar com abc ou deaf.
+
+```{r}
+str_view(c("abc","deaf"),pattern="abc|d..f")
+```
+
+```{r}
+str_view(c("grey","gray"),pattern = "gr(e|a)y")
+```
+
+```{r}
+str_view(c("color","colour"),pattern = "colo(|u)r")
+```
+
+### Exercícios 14.3.3.1
+
+a) Create regular expressions to find all words that:
+
+Start with a vowel.
+
+That only contain consonants. (Hint: thinking about matching “not”-vowels.)
+
+End with ed, but not with eed.
+
+End with ing or ise.
+
+```{r}
+palavras <- words %>% .[sample(1:980,100)]
+```
+
+```{r}
+str_view(palavras,pattern = "^[aeiou]",match=T)
+```
+
+```{r}
+str_view(words,pattern = "[aeiou]",match = F)
+```
+
+```{r}
+str_view(words,pattern = "[^e]ed$",match=T)
+```
+
+```{r}
+str_view(words,pattern = "i(ng|se)$",match = T)
+```
+
+b) Empirically verify the rule “i before e except after c”.
+
+```{r}
+str_view(words,"[^c]ie",match=T)
+```
+
+c) Is “q” always followed by a “u”?
+
+```{r}
+str_subset(words,'q[^u]')
+```
+Nesse banco de dados sim
+
+d) Write a regular expression that matches a word if it’s probably written in British English, not American English.
+
+` " o[u] " ` Palavras como colour e 
+
+e) Create a regular expression that will match telephone numbers as commonly written in your country.(00) 0 0000-0000
+
+```{r}
+x <- "(00) 0 0000-0000"
+str_subset(x,pattern = "\\(\\d\\d\\)\\s\\d\\s\\d\\d\\d\\d-\\d\\d\\d\\d")
+```
+```{r}
+x <- "(00) 0 0000-0000"
+str_subset(x,pattern = "\\(\\d{2}\\)\\s\\d\\s\\d{4}\\-\\d{4}")
+```
+
+### 14.3.4 Repetition 
+
+Agora temos que saber controlar quantas vezes um padrão se repete.
+
+- ? = 0 ou 1
+
+- + = 1 ou mais
+
+- * = 0 ou mais
+
+Exemplo: 
+
+```{r}
+x <- "1888 is the longest year in Roman numerals: MDCCCLXXXVIII"
+str_view(x, "CC?")
+```
+
+```{r}
+str_view(x, "CC+")
+```
+
+```{r}
+str_view(x, 'C[LX]+')
+```
+
+A precêdencia desse operadores é alta, ou seja podemos escrever colou?r para encontrar cor em Inglês Britanico ou Americano. 
+
+Podemos também especificar o número de combinações precisamente.
+
+- {n}: Exatamente n
+
+- {n,}: n ou mais
+
+- {,m}: até m
+
+- {n,m}: entre n e m
+
+```{r}
+str_view(x,"C{2}")
+```
+
+```{r}
+str_view(x,"C{2,}")
+```
+
+```{r}
+str_view(x, "C{2,3}")
+```
+
+Por padrões essas combinações encontram o maior string possível, se quiser o menor podemos colocar uma ? depois das chaves.
+
+```{r}
+str_view(x,"C{2,3}?")
+```
+
+```{r}
+str_view(x,"C[LX]+?")
+```
+
+### Exercícios 14.3.4.1 
+
+a) Descreva equivalentes de ?,+,* no formato {m,n}.
+
+? = {0,1}
+
++ = {1,}
+
+* = {0,}
+
+b) Describe in words what these regular expressions match: (read carefully to see if I’m using a regular expression or a string that defines a regular expression.)
+
+` ^.*$ ` Essa expressão descreve qualquer padrão que combina com qualquer string. Sem quebra de linhas.
+
+` "\\{.+\\}" ` Essa expressão descreve qualquer expressão dessa formato {n} com mais de 0 caracteres dentro
+
+` \d{4}-\d{2}-\d{2} ` Essa expressão vai combinar qualque string com 4 digitos depois um traço, 2 dígitos e outro traço e depois 2 digitos
+
+` "\\\\{4}" ` Essa expressão vai combinar uma sequência de exatamente 4 dígitos
+
+
+c) Create regular expressions to find all words that:
+
+Start with three consonants.
+```{r}
+str_view(words,"^[^aeiou]{3}",match = T)
+```
+
+Have three or more vowels in a row.
+```{r}
+str_view(words,"[aeiou]{3,}",match = T)
+```
+
+Have two or more vowel-consonant pairs in a row.
+```{r}
+str_view(words,"([aeiou][^aeiou]){2,}",match = T)
+```
+
+### 14.3.5 Grouping and Backreferences
+
+Aprendemos a usar parênteses para descomplicar expressões, podemos também usar eles para salvar algo que pedimos dentro dele e depois repetir. Fazemos essa chamada por meio de uma contrabarra e o número do parênteses.
+
+```{r}
+str_view(fruit,"(..)\\1",match=T)
+```
+
+### Exercícios 14.3.5.1 
+
+a) Describe, in words, what these expressions will match:
+
+(.)\1\1
+"(.)(.)\\2\\1"
+(..)\1
+"(.).\\1.\\1"
+"(.)(.)(.).*\\3\\2\\1"
+
+Uma caractere repetido 3 vezes. EX: aaa
+
+Um caractere, dois caracteres iguias e um caractere igual o primeiro. EX : abba
+
+Dois caracteres seguidos pela repetição dos dois caracteres. EX: mama
+
+Um caractere , qualquer outro caractere, o primeiro caractere denovo, outro caractere qualquer e o primerio denovo. 
+EX: abaca
+
+Três caracteres seguidos por n caracteres aleáorios (0 incluido) seguido pelo terceiro, segundo e primeiro caractere.
+EX: abcxxxxxxxxcba
+
+b) Construct regular expressions to match words that:
+
+Start and end with the same character.
+Contain a repeated pair of letters (e.g. “church” contains “ch” repeated twice.)
+Contain one letter repeated in at least three places (e.g. “eleven” contains three “e”s.)
+
+
+```{r}
+str_view(c("acsda","dbgfd","bdfada",'aa'),pattern ="^(.).*\\1$" )
+```
+
+```{r}
+str_view(words,pattern = "(..).*\\1",match = T)
+```
+
+```{r}
+str_view(words,pattern = "(.).*\\1.*\\1",match=T)
+```
+
+## 14.4 Tools
+
+Agora que sabemos o básico de expressões regulares vamos aprender como aplicar isso em problemas reais. Vamos aprender ferramentas como:
+
+- Determinar quais strings tem um padrão
+
+- Encontrar as posições dos padrões
+
+- Extrair os conteúdos dos padrões
+
+- Substituir padrões encontrados por novos valores
+
+- Dividir um string baseado no padrão.
+
+Apesar de serem extremamente potentes, nem toda situação que pode ser resolvida com expressões regulares devem ser resolvidas dessa maneira.
+
+### 14.4.1 Detect Matches
+
+Para conferir se vetor de caracteres tem uma padrão usamos str_detect():
+
+```{r}
+str_detect(c("Augusto","Ricardo","Norma","Vitor","Ivan"),pattern = "o$")
+```
+Como True e False podem ser considerados como númericos (1 e 0) podemos descobrir coisas com as funções sum() e mean() sobre combinadas com str_detect()
+
+Núemro de palavras de um vetor que começam com b. Percentual de palavras que terminam com vogais.
+```{r}
+str_detect(words,"^b") %>% sum
+
+str_detect(words,"[aeiou]$") %>% mean
+```
+
+Um uso comum de str_detect() é o uso desse para fazer subset dos que atendem certo padrão, mas isso também pode ser feito com str_subset()
+
+```{r}
+words[str_detect(words,'x$')]
+
+str_subset(words,'x$')
+```
+
+Muitas vezes seu vetor será uma coluna de um dataframe e será desejado usar filter.
+
+```{r}
+palavras <- tibble(i=seq_along(words),words=words)
+
+palavras %>% filter(str_detect(words,'^[j]'))
+```
+
+Uma variação de str_detect é o str_count que informa quantas vezes um padrão foi detectado na string
+```{r}
+x <- c("apple", "banana", "pear")
+str_count(x, "a")
+
+# Quantas vogai as palavras tem em média
+mean(str_count(words, "[aeiou]"))
+
+```
+Podemos usar str_count com mutate.
+```{r}
+palavras %>% mutate(vogais = str_count(words,"[aeiou]"),consoantes = str_count(words,"[^aeiou]"))
+```
+
+Vale ressaltar que padrões encontrados nunca se sobrepõe. EX:
+
+```{r}
+str_count("abababa", "aba")
+
+str_view_all("abababa", "aba")
+```
+
+### Exercícios 14.4.1.1
+
+a) For each of the following challenges, try solving it by using both a single regular expression, and a combination of multiple str_detect() calls.
+
+Find all words that start or end with x.
+
+Find all words that start with a vowel and end with a consonant.
+
+Are there any words that contain at least one of each different vowel?
+
+```{r}
+(umregex <- str_subset(words,"^x|x$"))
+
+doisstr <- str_detect(words,'^x') | str_detect(words,'x$')
+doisstr <- words[doisstr]
+
+identical(umregex,doisstr)
+```
+```{r}
+(umregex <- str_subset(words,"^[aeiou].*[^aeiou]$"))
+
+doisstr <- str_detect(words,"^[aeiou]") & str_detect(words,"[^aeiou]$")
+doisstr <- words[doisstr]
+
+identical(umregex,doisstr)
+```
+
+O outro método é muito complicado.
+```{r}
+doisstr <- words[str_detect(words, "a") &
+  str_detect(words, "e") &
+  str_detect(words, "i") &
+  str_detect(words, "o") &
+  str_detect(words, "u")]
+```
+
+b) What word has the highest number of vowels? What word has the highest proportion of vowels? (Hint: what is the denominator?
+
+```{r}
+nova <- palavras %>% mutate(total = str_count(words,"[aeiou]"),media = str_count(words,"[aeiou]")/str_length(words))
+
+nova %>% arrange(desc(total)) %>% head(10)
+
+nova %>% arrange(desc(media)) %>% head(10)
+```
+
+### 14.4.2 Extract Matches
+
+Para extrair o texto de uma combinação encontrada usamos str_extract. Vamos usar os dados de sentences para fazer esse exemplo.
+
+```{r}
+length(sentences)
+
+
+head(sentences)
+
+```
+
+Queremos encontrar todas frases que contém uma cor por exemplo:
+
+```{r}
+colors <- c("red", "orange", "yellow", "green", "blue", "purple")
+
+color_match <- str_c(colors,collapse ='|')
+color_match
+```
+
+Agora podemos selecionar as frases que contém uma cor.
+```{r}
+has_color <- str_subset(sentences,color_match)
+
+matches <- str_extract(has_color,color_match)
+matches 
+```
+Note que essa função só retorna a primeria aparição. Podemos ver isso melhor por meio de view usando as que tem mais de uma cor.
+
+```{r}
+more <- sentences[str_count(sentences, color_match) > 1]
+str_view_all(more, color_match)
+```
+
+```{r}
+str_extract(more, color_match)
+```
+
+```{r}
+str_extract_all(more, color_match)
+```
+Quando usamos all temos estruturas de dados mais complexas para trabalhar.
+
+Se usarmos simplify = T, vamos ter o retorno em uma matriz.
+
+```{r}
+str_extract_all(more, color_match, simplify = TRUE)
+
+
+x <- c("a", "a b", "a b c")
+str_extract_all(x, "[a-z]", simplify = TRUE)
+
+```
+
+### Exercícios 14.4.2.1 
+
+a) In the previous example, you might have noticed that the regular expression matched “flickered”, which is not a colour. Modify the regex to fix the problem.
+
+```{r}
+colors <- c("red", "orange", "yellow", "green", "blue", "purple")
+
+color_match <- str_c("\\b(",str_c(colors,collapse ='|'),")\\b")
+color_match
+
+has_color <- str_subset(sentences,color_match)
+
+matches <- str_extract(has_color,color_match)
+matches 
+```
+b)  From the Harvard sentences data, extract:
+
+The first word from each sentence.
+All words ending in ing.
+All plurals.
+
+```{r}
+str_extract(sentences,"[A-Za-z']+")
+```
+
+```{r}
+padr <- "\\b[A-Za-z]+ing\\b" 
+frases_ing <- str_detect(sentences,padr)
+str_extract_all(sentences[frases_ing],padr) %>% unlist() %>% unique
+```
+
+Temos que generalizar, vamos procurar palavras terminadas em s que tem mais de 3 letras.
+```{r}
+padr <- "\\b[a-zA-Z]{3,}s\\b"
+frases_plu <- str_detect(sentences,padr)
+str_extract_all(sentences[frases_plu],padr) %>% unlist %>% unique
+```
+
+### 14.4.3 Grouped Matches
+
+Os parentêses podem ser usados para extrair partes de uma combinação complexa. Vamos supor que queiramos extrair substantivos (nouns) de frases. Vamos procurar qualquer palavra que venha depois de a ou the. Podemos definir uma palavra como uma sequência de caracteres que não é um espaço.
+
+```{r}
+noun <- "(a|the) ([^ ]+)"
+
+has_noun <- sentences %>%
+  str_subset(noun)
+has_noun %>% 
+  str_extract(noun)
+
+```
+
+str_match vai nos fornecer cada componente além do todo na matriz.
+
+```{r}
+has_noun %>% str_match(noun)
+```
+
+Infelizmente nosso padrão usado para detectar substantivos é ruim e seleciona muitos adjetivos. Mas o código funcionou.
+
+If your data is in a tibble, it’s often easier to use tidyr::extract(). It works like str_match() but requires you to name the matches, which are then placed in new columns:
+
+```{r}
+tibble(sentence = sentences) %>% 
+  tidyr::extract(
+    sentence, c("article", "noun"), "(a|the) ([^ ]+)", 
+    remove = FALSE
+  )
+```
+
+### Exercícios 14.4.3.1
+
+a) Encontre todas as palvaras que vem depois de números. 1 a 9. 
+
+```{r}
+numbers <- c("one","two","three","four","five","six","seven","eight","nine","ten")
+numberscoll <- str_c(numbers,collapse="|")
+numbersfin <- str_c('\\b(',numberscoll,') ',"+(\\w+)")
+
+str_subset(sentences,numbersfin) %>% str_extract(numbersfin)
+
+```
+
+b) Encontre todas as contrações e separe as partes antes e depois do apóstrofo.
+
+```{r}
+contra <- "[a-zA-Z]+'[a-zA-z]+"
+str_subset(sentences,contra) %>% str_extract(contra) %>% str_split("'")
+```
+
+### 14.4.4 Replacing Matches
+
+str_replace e str_replace_all substituem as combinações que encontramos pelo que pedirmos.
+
+```{r}
+str_replace("Augusto de Souza Cavalcanti","d.*i","S.C.")
+
+str_replace("Augusto de Souza Cavalcanti","[a-zA-Z]{1}\\s"," ")
+
+str_replace_all("Augusto de Souza Cavalcanti","[a-zA-Z]{1}\\s"," ")
+
+x <- c("1 house", "2 cars", "3 people")
+str_replace_all(x, c("1" = "one", "2" = "two", "3" = "three"))
+```
+
+Você pode usar referências para fazer alterações tambêm. Ex: trocando a ordem da segunda e terceira palavra
+
+```{r}
+sentences %>% 
+  str_replace("([^ ]+) ([^ ]+) ([^ ]+)", "\\1 \\3 \\2") %>% 
+  head(5)
+```
+
+### Exercicíos 14.4.4.1 
+
+a) Substitua todas barras de um string por contrabarras.
+
+```{r}
+str_replace_all('/////////////','/','\\\\')
+```
+b) Implemente uma versão simples de str_to_lower() usando replace_all():
+
+```{r}
+str_replace_all("ABCDEFG",c("A" = "a", "B" = "b", "C" = "c", "D" = "d", "E" = "e",
+                  "F" = "f", "G" = "g", "H" = "h", "I" = "i", "J" = "j", 
+                  "K" = "k", "L" = "l", "M" = "m", "N" = "n", "O" = "o", 
+                  "P" = "p", "Q" = "q", "R" = "r", "S" = "s", "T" = "t", 
+                  "U" = "u", "V" = "v", "W" = "w", "X" = "x", "Y" = "y", 
+                  "Z" = "z"))
+```
+c) Switch the first and last letters in words. Which of those strings are still words?
+```{r}
+invertido <- str_replace(words,"^([A-Za-z]{1})(.*)([A-Za-z]{1})","\\3\\2\\1")
+
+words[words %in% invertido ]
+
+# OU
+
+intersect(invertido,words)
+```
+
+### 14.4.5 Splitting
+
+str_split() divide um string em vários.
+
+```{r}
+str_split(sentences," ") %>% head()
+```
+
+Se estiver usando apenas um vetor podemos pedir o primeiro elemento da lista retornada.
+
+```{r}
+str_split("O Guto está digitando"," ") %>% .[[1]]
+```
+
+Simplify também retorna uma matriz.
+
+```{r}
+sentences %>% head(5) %>% str_split(" ",simplify = T)
+
+sentences %>% head(5) %>% str_split(" ",simplify = T) %>% .[,1] # Primeira palavra de cada frase.
+```
+Você também pode pedir um máximo de separações.
+
+```{r}
+str_split(c("Augusto de Souza Cavalcanti","Ivan de Souza Cavalcanti")," ",n=2,simplify = T)
+```
+
+Podemos ao invés de separar por padrões separar por outros elementos usando a função boundary().
+
+```{r}
+x <- "This is a sentence.  This is another sentence."
+str_view_all(x, boundary("word"))
+x <- "This is a sentence.  This is another sentence."
+str_view_all(x, boundary("sentence"))
+```
+
+### Exercícios 14.4.5.1
+
+a) Split up a string like "apples, pears, and bananas" into individual components.
+
+```{r}
+str_split("apples, pears, and bananas",pattern = ", ")[[1]] %>% str_replace_all("and ","")
+```
+b) Why is it better to split up by boundary("word") than " "?
+Quando ouverem palavras separadas por um ponto sem o espaço devido ou palavras compostas.
+```{r}
+str_split("Hot-Dog,Hello.",boundary("word"))[[1]]
+
+str_split("Hot-Dog,Hello."," ")[[1]]
+```
+c) What does splitting with an empty string ("") do? Experiment, and then read the documentation.
+
+```{r}
+str_split("Augusto de Souza Cavalcanti","")[[1]]
+```
+Separar sem informar nada faz com que você separe por caractere.
+
+### 14.4.6 Find matches
+str_locate() and str_locate_all() give you the starting and ending positions of each match. These are particularly useful when none of the other functions does exactly what you want. You can use str_locate() to find the matching pattern, str_sub() to extract and/or modify them.
+
+## 14.5 Other Type of Patterns 
+
+Quando usamos um padrão que é uma string ele está automaticamente embutido em uma chamada para regex().
+
+```{r}
+# The regular call:
+str_view(fruit, "nana")
+# Is shorthand for
+str_view(fruit, regex("nana"))
+```
+
+Podemos usar outros argumantos de regex() para controlar detalhes.
+
+- ignore_case = T : vai fazer com que as letras maíusculas e minúsculas não sejam diferenciadas.
+
+```{r}
+bananas <- c("banana", "Banana", "BANANA")
+str_view(bananas, regex("banana", ignore_case = TRUE))
+```
+
+- multiline = T : permite que $^ sejam indicados para cada linha e não para a string toda.
+
+```{r}
+x <- "Line 1\nLine 2\nLine 3"
+str_extract_all(x, "^Line")[[1]]
+
+str_extract_all(x, regex("^Line", multiline = TRUE))[[1]]
+
+```
+
+- comments = T : Permite que usemos comentários dentro do padrão que serão ignorados. Ao fazer isso espaços tem que ser representados por `"\\ "` 
+
+```{r}
+phone <- regex("
+  \\(?     # optional opening parens
+  (\\d{3}) # area code
+  [) -]?   # optional closing parens, space, or dash
+  (\\d{3}) # another three numbers
+  [ -]?    # optional space or dash
+  (\\d{3}) # three more numbers
+  ", comments = TRUE)
+
+str_match("514-791-8141", phone)
+
+```
+
+- dotall = T : Permite que combinemos com tudo inclusive `\n` 
+
+Existem outras funções que podem ser usadas sem ser regex:
+
+- fixed() : Permite que combinemos com exatamente o que estamos escrevendo, pode ser muito mais rápido e simples que o regex.
+
+```{r}
+microbenchmark::microbenchmark(
+  fixed = str_detect(sentences, fixed("the")),
+  regex = str_detect(sentences, "the"),
+  times = 20
+)
+```
+
+Pode ser problemático trabalhando com outras línguas diferente do Ingles, acentos por exemplo causam problemas.
+
+- coll() : Compara strings baseado em regras da língua. Pode receber o parâmetro locale().
+
+```{r}
+# That means you also need to be aware of the difference
+# when doing case insensitive matches:
+i <- c("I", "İ", "i", "ı")
+i
+
+
+str_subset(i, coll("i", ignore_case = TRUE))
+
+str_subset(i, coll("i", ignore_case = TRUE, locale = "tr"))
+
+```
+
+- boundary() pode ser usado com as outras funções sem ser regex.
+
+### Exercícios 14.5.1
+
+a) How would you find all strings containing `\` with regex() vs. with fixed()?
+
+```{r}
+strings <- c("olá \\ oi","fala cara","boa \\ tarde","Bom dia","última \\")
+
+str_subset(strings,pattern = "\\\\")
+
+str_subset(strings,fixed("\\"))
+
+```
+
+b) What are the five most common words in sentences?
+
+```{r}
+str_extract_all(sentences,boundary("word")) %>% unlist() %>% as_tibble() %>% count(value,sort=T) %>% head(5)
+```
+
+## 14.6 Other uses of regular expressions
+
+Existem duas outras funções no r base que utilizam regex:
+
+- apropos: Procura todos objetos disponíveis do ambiente global. Útil para encontrar nomes de funções.
+
+```{r}
+apropos("replace")
+```
+- dir : lista todos arquivos no diretorio.
+
+```{r}
+dir()
+
+dir(pattern = "Rmd")
+```
+
+## 14.7 Stringi
+
+Pacote de manipulação de strings muito maior. O stringr foi feito com base nas funções mais usadas e contém basicamente todas que você pode precisar normalmente. Os pacotes são bem similares e caso o stringr não seja suficiente para atender a necessidade vale a pena dar uma olhada no stringi.
+
+### Exercícios 14.7.1
+
+a) Find the stringi functions that:
+
+Count the number of words.
+Find duplicated strings.
+Generate random text.
+
+stri_count_words.
+
+```{r}
+stringi::stri_count_words(head(sentences))
+```
+```{r}
+stringi::stri_duplicated(c("Guto","Augusto","Cavalcanti","Ivan","Bam","Cavalcanti"))
+```
+Note que retorna duplicado apenas quando é a repetida, pode ser útil para retirar as duplicadas.
+
+```{r}
+stringi::stri_rand_shuffle("Fala Augusto.")
+```
+```{r}
+stringi::stri_rand_lipsum(1)
+```
+Lorem ipsum é um tipo de texto em latim completamente aleatorio usado para obras com texto no design gráfico.
+
+b) How do you control the language that stri_sort() uses for sorting?
+
+Voce pode fornecer o locale.

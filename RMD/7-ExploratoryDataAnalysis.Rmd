@@ -1,0 +1,631 @@
+---
+title: "7 Exploratory Data Analysis"
+author: "Augusto de Souza Cavalcanti"
+date: "22/04/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(tidyverse)
+require(nycflights13)
+require(ggstance)
+require(lvplot)
+require(ggbeeswarm)
+require(hexbin)
+```
+
+## 7.1 Introduction
+
+Esse capítulo é sobre análise exploratória de dados, uma maneira de transformar e visualizar os dados de maneira sistemática. AED  é um ciclo iterativo. 
+
+1- Gerar perguntas/hipóteses sobre os dados.
+
+2- Procurar respostas por meio de visualizações, transformações e modelagem dos dados.
+
+3- Usar o que foi descoberto para refinar as perguntas e gerar novas hipóteses.
+
+O processo não é engessado e com regras claramente definidas, durante a fase inicial você deve investigar todas ideias que vierem a cabeça, algumas serão corretas e outras não. Durante o processo você encontrará áreas produtivas e informações que valem a pena serem passadas e comunicadas. 
+
+AED é uma parte importante da análise de dados, até se as perguntas são entregues de bandeja, ainda deve ser feita uma análise sobre a qualidade dos dados. Tratamento de dados é uma das aplicações da análise exploratória.
+
+## 7.2 Questions
+
+O objetivo durante a AED é desenvolver conhecimento sobre seus dados. A maneira mais fácil para isso é fazer perguntas sobre seus dados como ferramentas para guiar sua investigação. Quando uma pergunta é feita, ela foca sua atenção em uma parte específica dos dados e te ajuda a decidir quais visualizações, transformações e modelos devem ser feitos.
+
+AED é um processo criativo, dessa maneira a chave para gerar boas perguntas é gerar muitas perguntas. Inicialmente é difícil gerar boas perguntas pois não sabemos os insights estão no dataset. Por outro lado a cada pergunta vai gerar uma exposição a uma nova faceta dos seus dados e permitir e aumentar sua chance de fazer descobertas e novas perguntas. Voce pode rapidamente chegar as partes mais interessantes dos seus dados e criar perguntas efetivas, se a cada pergunta feita voce gere uma nova pergunta baseada nos seus achados.
+
+Não existe uma regra para quais perguntas devem ser feitas, mas existem dois tipos de pergunta que são úteis para fazer descobertas nos seus dados:
+
+1- Qual tipo de variação ocorre entre minhas variáveis?
+
+2- Qual tipo de covariação ocorre entre minhas variáveis?
+
+O resto do capítulo será focado nessas perguntas, mas precisamos definir alguns termos para facilitar:
+
+- Uma variável é uma quantidade, qualidade ou propriedade que pode ser medida.
+
+- Um valor é o estado de uma variável quando você mede. Essa valor pode mudar de medição para medição.
+
+- Uma observação é um conjunto de medidas feitas sob uma condição parecida. Normalmente todas medidas de uma observação são feitas ao mesmo tempo no mesmo objeto. Uma observação contém varios valores, cada um associado à uma variável. Podemos nos referir a observações como data points.
+
+- Tabular Data é uma série de valores, cada um associado com uma variável e uma observação. Tabular data é Tidy se cada valor é colocado em uma célula, cada variável em uma coluna e cada observação em uma linha.
+
+Todos dados que trabalhamos até agora eram tidy, a maioria dos dados na vida real não vira dessa forma e devem ser trabalhados.
+
+## 7.3 Variation 
+
+Variação é a tendência de valores de uma variável de mudarem de medição em medição. É facíl observar variação na vida real, qualquer variável contínua medida duas vezes assume valores diferentes. Até se medirmos a velocidade da luz 2 vezes teremos erros pequenos em cada uma das medições. Variáveis categóricas também podem ser diferentes se medidas em assuntos diferentes ou tempos diferentes. Cada variável tem seu padrão de variação, que pode revelar informações interessantes. A melhor maneira de entender esse padrão é visualizar a distribuição dos valores da variável.
+
+### 7.3.1 Visualising Distributions
+
+A maneira de vizualizar a distribuição depende se essa variável é categórica ou contínua. Uma variável é categórica se só puder receber um pequeno conjunto de valores. No r essas variáveis são salvas como factors ou character vectors. Para vizualizar a distribuição podemos usar um gráfico de barras.
+
+```{r,fig.align='center'}
+ggplot(diamonds) + geom_bar(aes(x=cut))
+```
+
+Uma variável é contínua se pode receber qualquer valor de um infinito conjunto de valores. Datas e Números são exemplos de variáveis contínuas. Para analisar a distribuição de uma variável contínua usaremos um histograma.
+
+```{r}
+diamonds %>% ggplot() + geom_histogram(aes(x=carat),binwidth = 0.5)
+```
+O cálculo pode ser feito a mão usando count e cut_width.
+```{r}
+diamonds %>% count(cut_width(carat,0.5))
+```
+
+Podemos sempre testar outros tamanhos para os intervalos. Por exemplo, podemos olhar os mesmos dados anteriores porem com uma espessura do intervalo de 0.1 e considerando apenas diamantes com menos de 3 quilates.
+
+```{r}
+diamonds %>% filter(carat <3) %>% ggplot() + geom_histogram(aes(carat),binwidth = 0.1)
+```
+
+Se o desejo é ter vários histogramas no mesmo gráfico, é melhor usar a função geom_freqpoly(), que faz as mesmas coisas porém usando linhas e não barras.
+
+```{r}
+diamonds %>% filter(carat<3) %>% ggplot() + geom_freqpoly(aes(carat,color=cut),binwidth=0.1)
+```
+
+Agora que temos a capacidade de visualizar a variação, que tipo de perguntas devem ser feitas? Abaixo teremos uma lista de perguntas a serem feitas a seguir, porém é sempre bom se perguntar sobre o que se deseja saber mais sobre o gráfico e o que pode ser enganoso e levar a uma conclusão errada.
+
+### 7.3.2 Typical Values
+
+Para transformar os dados do histograma e gráfico de barras em perguntas úteis procure por coisas inesperadas:
+
+- Quais valores são os mais comuns? Por quê?
+
+- Quais valores são raros? Por quê? 
+
+- Você consegue indentificar algum padrão inesperado? Algo consegue explicar esse padrão?
+
+A seguir algumas perguntas que p histograma a seguir pode gerar.
+
+- Por que existem mais diamantes com quilates inteiros e frações comuns?  
+
+- Por que existem mais diamantes um pouco a direita dos picos do que a esquerda?
+
+- Por que não existem diamantes maiores que 3 quilates.
+
+```{r}
+diamonds %>% ggplot() + geom_histogram(aes(x=carat),binwidth = 0.01)
+```
+
+Clusters de valores similares indicam que existem subgrupos nos dados, para entender os subgrupos pergunte:
+
+- Como as observações em cada cluster são similares entre si?
+
+- Como as observações em cada cluster são em cada cluster diferentes entre eles?
+
+- Como os clusters podem ser explicados?
+
+- Por que as aparências dos clusters podem ser enganosas?
+
+
+O histograma a seguir apresenta mostra a duração de 272 erupções em um vulcão nos Estados Unidos. Podemos perceber clusters em dois grupos: erupções curtas (+- 2 min) e erupções longas entre 4 e 5 minutos.
+
+```{r}
+ggplot(data = faithful, mapping = aes(x = eruptions)) + 
+  geom_histogram(binwidth = 0.25)
+```
+
+Muitas das perguntas acima vão levar a exploração de relações entre variáveis. Para por exemplo ver se os valores de uma variável pode explicar a outra.
+
+### 7.3.3 Unusual Values
+
+Outliers são valores que não se encaixam em um padrão do seus dados. Quando temos muitos dados, outliers se tornam difíceis de serem visualizados nos seus dados, EX:
+
+```{r}
+ggplot(diamonds) + geom_histogram(aes(x=y),binwidth = 0.5)
+```
+
+A única evidência de outliers que temos são os eixos y extremamente longos apesar de não podermos ver nada, um zoom na área inferior pode nos ajudar.
+
+```{r}
+ggplot(diamonds) + geom_histogram(aes(x=y),binwidth = 0.5) + coord_cartesian(ylim=c(0,50))
+```
+
+Agora podemos perceber que existem dados individuais em algumas partes que não tinhamos visto antes e um pequeno conjunto no 0. Existem dados no 0 e maiores que 30 que não tinhamos percebido antes. Podemos usar o dplyr para selecionar esses valores.
+
+```{r}
+diamonds %>% filter(y>20 | y <3) %>% select(price,y,x,z) %>% arrange(y)
+```
+Podemos perceber que todos esses dados são provavelmente erros nas entradas de dados. Os dados x,y,z mostram as dimensões dos diamantes, diamantes com dimensão 0 não existem, e os diamantes com dimensão y extremamente alta são muito baratos em relação ao preço que assumiriam se tivessem esse valor de y.
+
+É interessante repetir suas análises com e sem outliers, caso eles tenham um efeito pequeno nos dados e voce não consegue explicar o motivo deles estarem lá é razoável substituilos por NA e seguir. No entanto se eles tiverem grandes efeitos na sua análise voce não deve removelos sem saber explicar o motivo (Erro na entrada de dados, nesse caso remover), o correto é achar o motivo e explicar porque foram removidos.
+
+### Exercícios 7.3.4
+
+a) Explore a distribuição de x,y,z. O que voce descobriu, conclua sobre qual é a altura, qual a largura e a profundidade se tivessemos que advinhar. 
+
+```{r}
+ggplot(diamonds) + geom_histogram(aes(x = x),binwidth = 0.3)
+```
+
+A distribuição de x não parece ter outliers grandes de entrada de dados muito da mesma maneira que y pois seus eixos são do tamanho esperado. Os outliers em 0 no entanto continuam existindo. A maioria dos dados se concentra entre 4 e 8 mm.
+
+```{r}
+ggplot(diamonds) + geom_histogram(aes(x = y),binwidth = 0.3) + coord_cartesian(xlim=c(1,10))
+```
+
+A distribuição de y, como concluido previamente tem alguns outlieres vindos de entrada de dados, porém desconsiderando eles seguem o mesmo de x com a maioria dos dados concentrados entre 4 e 8 mm.
+
+```{r}
+ggplot(diamonds) + geom_histogram(aes(x = z),binwidth = 0.3)
+```
+
+Pelo gráfico, existem outliers a direita devido a extensão do eixo x, podemos verificar os valores que se encontram e fazer uma tabela para conferir se esses são vindos de entrada de dados.
+
+```{r}
+ggplot(diamonds) + geom_histogram(aes(x = z),binwidth = 0.3) + coord_cartesian(ylim=c(0,30))
+```
+```{r}
+diamonds %>% filter(z<2 | z> 8) %>% select(price,z,y,x) %>% arrange(z)
+```
+
+Os diamantes com z = 0 podem ser considerados erros na entrada de dados, já os diamantes com z entre 1 e 2 podem não devem ser descartados pois não temos indicação que esses são erros de entrada. Os diamantes maiores que 8 podem ser descartados, o preço deles não condiz com o que seria esperado caso suas dimensões (x,y e z) realmente fossem as que foram apresentadas. 
+
+```{r}
+diamonds %>% ggplot(aes(x=z)) + geom_histogram(binwidth = 0.5) + coord_cartesian(xlim = c(0,10))
+```
+
+A maioria dos diamantes parece ter seu Z entre 2.5 e 5, diferente das outras duas dimensões. 
+
+Acredito devido a essa distribuição e ao conhecimento básico sobre diamantes:
+
+- Z: Profundiade = Altura R: Profundidade
+
+- x / Y : Largura e Comprimento não sei qual é qual. R: X= Comprimento , Y= Largura
+
+b) Explore a distribuição de preços. Explore diferentes tamanhos de intervalo:
+
+```{r}
+diamonds %>% ggplot + geom_histogram(aes(x=price),binwidth = 100)
+```
+
+A maioria dos diamantes está entre 1000 e 2500, existe um grande espaço sem diamantes em aproximadamente 1500.
+
+```{r}
+diamonds %>% ggplot + geom_histogram(aes(x=price),binwidth = 10)
+```
+
+Com esses valores vemos grandes picos na distribuição, isso acontece possivelmente por um arredondamento de preços para final 99 por exemplo. Podemos testar:
+
+
+```{r}
+diamonds %>% mutate(final = price %% 10) %>% ggplot() + geom_histogram(aes(x=final),binwidth = 1,center=0.5)
+```
+
+```{r}
+diamonds %>% mutate(final = price %% 100) %>% ggplot() + geom_histogram(aes(x=final),binwidth = 1,center=0.5)
+```
+Podemos ver que os finais não são normalmente distribuidos e que tendem a ter prefêrencias sobre os ultimos digitos. O mais comum são escolhas terminadas em 0. 
+
+c) Quantos diamantes tem 1 carat, quantos tem 0.99? Por que?
+
+```{r}
+diamonds %>% filter(carat %in% c(0.99,1)) %>% count(carat)
+```
+
+Podemos ver que muitos diamantes tem 1 quilate e pouquissimos tem 0.99. Diamantes não são formados com uma probabilidade maior de ter um que o outro, então essa diferença não pode ser natural. O motivo da diferença provavelmente é o arredondamento.
+
+d) Compare coord_cartesian() com xlim e ylim. 
+
+```{r}
+diamonds %>% ggplot(aes(price)) + geom_histogram(binwidth = 100) + xlim(c(2000,3000))
+```
+
+
+```{r}
+diamonds %>% ggplot(aes(price)) + geom_histogram(binwidth = 100) + coord_cartesian(xlim=c(2000,3000))
+```
+
+A diferença é que o coord cartesian não remove os dados e cria o histograma depois, ele apenas da zoom e mantem a altura relativa a outras barras que existem, o xlim cria o histograma considerando apenas os dados naquele intervalo existentes, dessa maneira os eixos são reajustados
+
+## 7.4 Missing Values
+
+Quando valores não usuais são enconctrados, temos duas opções se quisermos continuar para a análise:
+
+- Podemos remover todas as linhas que tem contem esses valores:
+
+```{r}
+diamonds %>% filter(between(y,3,20))
+```
+Não é o ideal se temos um valor errado para uma observação não significa que todos valores serão. Além disso quando temos dados de baixa de qualidade podemos retirar uma porção consideravel dos dados.
+
+- Substituir os valores não usuais por NA, fazemos isso usando mutate e criando uma cópia da variável modificada. Usando a função ifelse o processo se torna bem simples.
+
+```{r}
+diamonds2 <- diamonds %>% mutate(y = ifelse(y<3 |y>20,NA,y))
+```
+
+Quando plottamos algo com ggplot os valores NA não são colocados porém um aviso é feito sobre isso. Para que o aviso não apareça temos que usar na.rm=T.
+
+```{r}
+ggplot(diamonds2) + geom_point(aes(x=x,y=y))
+```
+
+
+Outras vezes queremos saber o que valores faltantes significam, no df flights usado anteriormente, os voos com dep_time NA significavam que o voo foi cancelado. Então poderiamos fazer uma análise do horário previsto de voos cancelados .
+
+```{r}
+flights %>% filter(is.na(dep_time)) %>% ggplot() + geom_histogram(aes(x=hour),binwidth = 1,center=0.5)
+```
+```{r}
+flights %>% ggplot() + geom_histogram(aes(x=hour),binwidth = 1,center=0.5)
+```
+
+Com os dois gráficos em conjunto podemos concluir que mais voos são cancelados em horários mais tardios, podiamos ainda fazer esse histograma para as proporções de voos cancelados.
+
+```{r}
+flights %>% mutate(cancelado = is.na(dep_time)) %>% group_by(hour) %>% summarise(total= n(),cancelados = sum(cancelado)) %>% filter(total>3000) %>% transmute(hour,percanc = cancelados/total) %>% ggplot() + geom_col(aes(hour,percanc))
+```
+
+### Exercícios 7.4.1
+
+a) O que acontece com dados faltantes em um histograma? O que acontece com dados faltantes em gráfico de barras?
+Qual a diferença?
+
+```{r}
+diamonds2 %>% ggplot(aes(y)) + geom_histogram(binwidth = 0.5,center=0.25)
+```
+No histograma valores NA são removidos.
+
+```{r}
+dados <- tibble(dados= c('G','G','G','G','B','B','B','V','V','V','N','N','R','R',NA,NA,NA,NA))
+
+dados %>% ggplot() + geom_bar(aes(dados))
+```
+No gráfico de barras por se tratar de valores categoricos é feita uma barra com valores faltantes. Como no histograma não teria uma posição correta para a barra isso não acontece.
+
+b) O que na.rm faz em mean e sum?
+
+na.rm remove os valores faltantes dos dados antes de fazer as contas.
+
+## 7.5 Covariation
+
+A variação descreve o comportamento dentro de uma variável, enquanto a covariação descreve o comportamento dos valores de duas variáveis. Covariação vai descrever a tendência de duas ou mais variáveis de mudarem de forma relacionada. A melhor maneira de vizualizar a covariação é visualizar a relação, a maneira de visualizar depende das variáveis observadas.
+
+### 7.5.1 A categorical and continuous Variable
+
+Uma maneira comum de vizualizar o comportamento de uma variável contínua em relação a uma categórica. Para isso podemos usar um poligono de frequência, porem quando o tamanho dos grupos isso pode ser tornar complicado pois é exibida a quantidade total no eixo y.
+
+```{r}
+diamonds %>% ggplot(aes(x=price)) + geom_freqpoly(aes(color=cut),binwidth=500)
+```
+Para melhorar isso podemos fazer alterar o que é exibido no eixo y para densidade, isso faz com que a area total sob o poligono seja 1 para todos os casos.
+```{r}
+ggplot(data = diamonds, mapping = aes(x = price, y = ..density..)) + 
+  geom_freqpoly(mapping = aes(colour = cut), binwidth = 500)
+```
+Dessa maneira temos a impressão que os diamantes mais caros são os de corte fair, de pior qualidade,podemos fazer isso de outra maneira. Um substituto para esse seria fazer um boxplot:
+
+BOXPLOT:
+```{r}
+diamonds %>% ggplot(aes(x= cut,y=price)) + geom_boxplot()
+```
+Novamente, parece que os diamante de pior corte tem os maiores preços o que é contra intuitivo. Iremos explorar isso melhor em exercícios.
+
+Cut é um fator ordenado, fair é pior que good... Muitas variáveis categóricas não tem esse ordenamento então pode valer a pena reordenar com a função reorder por exemplo. Vamos reordenar o boxplot de mpg em relação as das milhas em relação ao tipo de carro, dado que o tipo de carro não tem uma ordem própria.
+
+```{r}
+mpg %>% ggplot(aes(class,hwy)) + geom_boxplot()
+```
+
+Podemos reordenar para que deixar as classes em ordem de desempenho.
+
+```{r}
+mpg %>% ggplot(aes(reorder(class,hwy,FUN=median),hwy)) + geom_boxplot()
+```
+
+Podemos virar o boxplot para visualizar melhor os nomes.
+```{r}
+mpg %>% ggplot(aes(reorder(class,hwy,FUN=median),hwy)) + geom_boxplot() + coord_flip()
+```
+
+### Exercícios 7.5.1.1
+
+a) Use o que você aprendeu para melhorar a visualização dos voos partidos vs cancelados visto previamente.
+
+```{r}
+flights %>% transmute(hour,canc = is.na(dep_time)) %>% ggplot() + geom_freqpoly(aes(x=hour,y=..density..,color=canc),binwidth=1,center=0.5)
+```
+
+Podemos perceber que temos mais voos cancelados em horarios mais tardios que mais cedo, o uso de y = ..density.. ajuda a superar a barreira dos tamanhos do grupos diferentes.
+
+b) Qual variável está mais correlacionada com o preço em diamonds, como essa variável está correlacionada com cut, e por que isso leva a diamantes de corte inferior serem mais caros?
+
+Primeiro temos que descobrir qual variável mais afeta o preço dos diamantes, podemos fazer diversas visualições para descobrir isso, por não estarmos usando testes estatísiticos.
+
+Price x Carat:
+
+```{r}
+ggplot(diamonds) + geom_point(aes(carat,price))
+```
+
+Devido a grande quantidade de pontos podemos transformar em vários boxplots diferentes por meio de cut_width:
+
+```{r}
+ggplot(diamonds) + geom_boxplot(aes(carat,price,group = cut_width(carat,0.1)))
+```
+
+Price x Color.
+
+Como color é uma variável qualitativa podemos fazer um boxplot para tratar dessa variável.
+
+```{r}
+ggplot(diamonds) + geom_boxplot(aes(price,color)) + coord_flip()
+```
+
+Os fatores que representam a cor estão na ordem inversa, pois j é a pior cor e D a melhor. Podemos trocar isso para analisar. Mas é possível perceber que o valor dos diamantes também aumenta quando a qualidade da cor piora, novamente contraintuitivo.
+
+```{r}
+diamonds %>% mutate(color=fct_rev(color))%>% ggplot() + geom_boxplot(aes(price,color)) + coord_flip()
+```
+
+Price x Clarity. 
+
+```{r}
+diamonds %>% ggplot() + geom_boxplot(aes(clarity,price))
+```
+
+Novamente, os diamantes mais claros são so mais baratos. Podemos perceber que em clarity e color existe muito mais variação dentro dos boxplots do que entre os boxplots, o que indica que esses não são tão influentes no preço. Dessa maneira podemos concluir que carat é a variável mais importante para o preço.
+
+Agora temos que explorar a relação entre o corte de um diamante e seus quilates. 
+
+```{r}
+ggplot(diamonds) + geom_boxplot(aes(cut,carat))
+```
+
+Podemos perceber que diamantes com cortes piores costumam ser mais pesados, dado que esse é o fator que mais afeta o preço dos diamantes, faz sentido que diamantes de cortes piores tenham preços mais caros em média. O motivo para esses tipos de cortes piores pode ser a dificuldade de para cortar e polir diamantes grandes.
+
+c) Instale o pacote ggstance e crie um boxplot horizontal, como isso compara com coord_flip?
+
+```{r}
+ggplot(diamonds) + geom_boxplot(aes(x=cut,y=price)) + coord_flip()
+
+ggplot(diamonds) + geom_boxploth(aes(y=cut,x=price))
+```
+
+Os argumentos de x e y já são fornecidos virados, enquanto com coordflip fornecidos invertidos e virados depois.
+
+d) Um problema com boxplot é que eles foram desenvolvidos em uma epoca que existiam muito menos dados, com a quantidade de dados de hoje, muitos dos boxplots conteram um numero de outliers muito grande. Para substituir isso existe o value plot. Instale o pacote lvplot e tente usar geom_lv(). Como voce interpreta esse gráfico.
+
+```{r}
+ggplot(diamonds) + geom_lv(aes(x=cut,y=price))
+```
+
+Esse gráfico apresenta a quantidade de valores em certa area pela espessura da barra, os critérios de outliers para esse gráfico tambem são alterados, essas mudanças nos permitem interpretar melhor os valores da cauda dos boxplots.
+
+e) Compare geom_violin com geom_histogram com varias faces.
+
+```{r}
+ggplot(diamonds) + geom_violin(aes(x=cut,y=price))
+
+ggplot(diamonds) + geom_histogram(aes(x=price)) + facet_wrap(~cut,ncol=1,scales='free_y')
+```
+
+Ambos estão fazendo a mesma função, o violino permite fazer uma comparação lado a lado mais interessante porem é menos preciso em relação a quantidade de valores presente nas áreas.
+
+f) Quando temos datasets pequenos, usar geom_jitter é útil para analisar variáveis categóricas vs contínuas, o pacote ggbeeswarm tem funções parecidas, liste essas e de exemplos.
+
+geom_beeswarm: Quando estamos plottando variáveis categóricas vs contínuas em pontos, essa função separa cada ponto em um valor espécifico da variável e permite que saibamos exatamente quantos pontos tem nesse local. Para conjuntos muito grandes pode atrapalhar. Melhor visualização que oo jitter que deixa tudo confuso em variáveis categóricas.
+```{r}
+mp <- ggplot(mpg,aes(x=class,y=cty))
+
+mp+ geom_point()
+
+mp+ geom_jitter()
+
+mp+geom_beeswarm()
+```
+
+geom_quasirandom: Novamente separa os pontos porém de forma aletória e com ruidos apenas no eixo da variável categorica, permite visualizar os pontos exatamente. Facilita a visualização para poucos dados.
+
+```{r}
+mp+geom_quasirandom()
+```
+
+### 7.5.2 Two Categorical Variables
+
+Para visualizar a covariação entre duas variáveis categóricas, voce precisa contar o número de observações de cada combinação. Uma maneira de fazer isso seria contar com o geom_count().
+
+```{r}
+ggplot(diamonds,aes(cut,color)) + geom_count()
+```
+
+O tamanho de cada círculo indica a quantidade de observações. Outra maneira é com o uso do dplyr.
+
+```{r}
+(conta <- mutate(diamonds,color=fct_rev(color)) %>% count(color,cut))
+```
+
+e depois visualizar com geom_tile() e aes fill.
+
+```{r}
+ggplot(conta) + geom_tile(aes(x=color,y=cut,fill=n))
+```
+
+Se as variáveis não são ordenadas podemos usar o pacote seriation para simultaneamente reordenar as colunas e linhas para obter uma melhor visualização.
+
+### Exercícios 7.5.2.1
+
+a) Como poderia alterar o dataset count para melhorar a distribuição de cortes entre as cores?
+
+Poderiamos cria uma variável proporção para apresentar a qualidade em relação ao tamanho do grupo.
+
+```{r}
+diamonds %>% count(color,cut) %>% group_by(color) %>% mutate(prop = n/sum(n)) %>% ggplot(aes(x=color,y=cut)) + geom_tile(aes(fill=prop)) + labs(title = 'Proporção da Qualidade do Corte por Cor')
+```
+
+b) Use geom_tile e o dplyr para analisar como o delay medio dos voos varia por destino e mes.
+
+```{r}
+(atr <- flights %>% group_by(dest,month) %>% summarise(quant = n(),media = mean(dep_delay,na.rm = T)))
+```
+
+Estamos considerando apenas os voos que atrasaram. 
+
+```{r}
+ggplot(atr) + geom_tile(aes(x=factor(month),y=dest,fill=media))
+```
+
+O gráfico ficar extreamente poluído e difícil de interpretar. Um dos problemas é a grande quantidade de destinos, podemos escolher apenas destinos que acontecem muitos voos. Segundo poderiamos remover locais que não existem meses que não ocorrem voos.
+
+```{r}
+(atr2 <- atr %>% filter(quant>100) %>% group_by(dest) %>% filter(n() == 12)) #Mantendo apenas os destinos que tiveram mais de 100 voos todo mês
+
+```
+```{r}
+atr2 %>% ggplot() + geom_tile(aes(x=factor(month),y=dest,fill=media))
+```
+
+A visualização ficou muito melhor e apresentou apenas destinos que tem muitos voos. Caso quisesemos os pequenos poderiamos fazer outro filtro e gráfico.
+
+c) X = cut é melhor pois facilita sua leitura é facilitada eixo y. 
+
+### 7.5.3 Two Continuos Variables
+
+Já vimos uma ótima maneira de analisar a relação entre duas variáveis contínuas, por meio de gráficos de dispersão, podemos ver por exemplo o efeito dos preços de diamantes em relação ao seu peso.
+
+```{r}
+ggplot(data = diamonds) +
+  geom_point(mapping = aes(x = carat, y = price))
+```
+
+Com muitos dados essa visualização pode ficar melhor com pontos transparentes.
+```{r}
+ggplot(data = diamonds) + 
+  geom_point(mapping = aes(x = carat, y = price), alpha = 1 / 10)
+```
+
+Mas usar transparencia pode ser ruim também com muitos dados, existem outros métodos para isso:
+
+- Podemos usar bins em duas dimensões também, por meio de geom_bin2d() e geom_hex(). Esses dividem o gráfico em várias ares e podemos pintar esses espaços de acordo com o número de pontos neles.
+
+```{r}
+ggplot(data = diamonds) +
+  geom_bin2d(mapping = aes(x = carat, y = price))
+
+
+ggplot(data = diamonds) +
+  geom_hex(mapping = aes(x = carat, y = price))
+```
+
+Outra maneira é agrupar uma das variáveis continuas para que se comporte como catégorica. cut_width(x,width) faz a divisão de uma variável continua de maneira que essa seja divida em varios grupos com espessura do intervalo = width. 
+
+```{r}
+ggplot(diamonds) + geom_boxplot(aes(x=carat,y=price,group=cut_width(carat,0.1)))
+```
+Podemos fazer com que a largura dos boxplots seja proporcional a quantidade de pontos nele, dessa maneira sabemos onde mais pontos se concentram.
+
+```{r}
+ggplot(diamonds) + geom_boxplot(aes(x=carat,y=price,group=cut_width(carat,0.1)),varwidth = T)
+```
+
+Podemos também definir quantas bins devem existir no gráfico, com o argumentocut_number definimos a quantidade de bins e todas devem ter a mesma quantidade de dados, isso gera boxplots de largura diferente.
+
+```{r}
+ggplot(diamonds) + geom_boxplot(aes(x=carat,y=price,group=cut_number(carat,20)))
+```
+
+### Exercícios 7.5.3.1
+
+a) Podemos fazer a visualização de duas contínuas por meio de um poligono de frequencia. O que deve ser considerado quando usamos cut_width() e cut_number()? Como isso impacta a visualização de carat vs price.
+
+```{r}
+ggplot(diamonds) + geom_freqpoly(aes(color=cut_width(carat,1,center=0.5),x=price))
+```
+
+Quando fazemos a divisão dessa maneira temos a distribuição de cada intervalo com todos os intervalos contendo tamanho igual.
+
+```{r}
+ggplot(diamonds) + geom_freqpoly(aes(color=cut_number(carat,5),x=price))
+```
+
+Quando fazemos a divisão dessa maneira temos todos grupo com quantidades iguais de observações e podemos perceber melhor que pesos maiores refletem preços mais caros.
+
+b) Visualize a distribuição de quilates dividida pro grupos de preço.
+
+```{r}
+ggplot(diamonds) + geom_boxplot(aes(y=carat,x=cut_number(price,10))) + coord_flip()
+```
+
+c) Como a distribuição de preço de grandes se compara com diamantes pequenos?
+
+```{r}
+ggplot(diamonds) + geom_boxplot(aes(x=cut_number(carat,2),y=price))
+```
+
+Os diamantes maiores tendem a ser mais caros e variarem mais, já esperava esses resultados dado que sabia que o fator mais influente no preço.
+
+d) Visualize a distribuição combinada de cut, carat e price.
+
+```{r}
+ggplot(diamonds) + geom_boxplot(aes(cut_number(carat,5),price,color=cut))
+```
+
+O que mais afeta realmente é o peso do diamante, porém o corte também afeta, em diamantes do mesmo peso a tendencia é que o preço seja maior para cortes melhores.
+
+e) Gráficos de dispersão apresentam outliers bem. Por exemplo: 
+
+```{r}
+ggplot(data = diamonds) +
+  geom_point(mapping = aes(x = x, y = y)) +
+  coord_cartesian(xlim = c(4, 11), ylim = c(4, 11))
+```
+
+Esse gráfico apresenta outliers que quando fossem visualizados individualmente em y seriam normais porém a combinação de x e y é não usual. O uso de gráficos de dispersão são melhores que divididos em classes nesse caso pois permitem indentificar esses pontos com mais facilidade.
+
+## 7.6 Patterns and Models
+
+Padrões em dados indicam que pode existir uma relação entre duas variáveis. Se você encontra um padrão se pergunte:
+
+- Esse padrão pode ser gerado por coincidência (Aleatoriedade)? 
+
+- Como você pode descrever a relação indicada pelo padrão?
+
+- Quão forte é a relação indicada pelo padrão?
+
+- Quais outras variáveis podem afetar a relação?
+
+- A relação é alterada ao analisarmos diferentes subgrupos dos dados?
+
+A covariação gera a possibilidade de usar o valor de uma variável para fazer previsões sobre a outra. Em casos que uma é consequência da outra podemos ainda controlar o valor de uma controlando a outra.
+
+Modelos são ferramentas para extrair padrões de dados, podemos usar modelos para definir a relação de duas variáveis sem a interferencia de uma terceira, ou podemos fazer a previsão de uma variável baseado em diversas outras variáveis ao mesmo tempo. 
+
+## 7.7 ggplot2 calls
+
+A partir dessa parte do livro os códigos serão mais concisos e não serão escritos os nomes de todos argumentos conforme anteriormente. 
+
+```{r}
+ggplot(data = faithful, mapping = aes(x = eruptions)) + 
+  geom_freqpoly(binwidth = 0.25)
+
+# SERÁ 
+
+ggplot(faithful, aes(eruptions)) + 
+  geom_freqpoly(binwidth = 0.25)
+```
+
